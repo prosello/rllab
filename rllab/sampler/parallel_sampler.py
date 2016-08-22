@@ -1,4 +1,4 @@
-from rllab.sampler.utils import rollout
+from rllab.sampler.utils import rollout, decrollout
 from rllab.sampler.stateful_pool import singleton_pool, SharedGlobal
 from rllab.misc import ext
 from rllab.misc import logger
@@ -49,10 +49,9 @@ def _worker_terminate_task(G, scope=None):
 def populate_task(env, policy, scope=None):
     logger.log("Populating workers...")
     if singleton_pool.n_parallel > 1:
-        singleton_pool.run_each(
-            _worker_populate_task,
-            [(pickle.dumps(env), pickle.dumps(policy), scope)] * singleton_pool.n_parallel
-        )
+        singleton_pool.run_each(_worker_populate_task,
+                                [(pickle.dumps(env), pickle.dumps(policy), scope)] *
+                                singleton_pool.n_parallel)
     else:
         # avoid unnecessary copying
         G = _get_scoped_G(singleton_pool.G, scope)
@@ -62,10 +61,7 @@ def populate_task(env, policy, scope=None):
 
 
 def terminate_task(scope=None):
-    singleton_pool.run_each(
-        _worker_terminate_task,
-        [(scope,)] * singleton_pool.n_parallel
-    )
+    singleton_pool.run_each(_worker_terminate_task, [(scope,)] * singleton_pool.n_parallel)
 
 
 def _worker_set_seed(_, seed):
@@ -73,10 +69,8 @@ def _worker_set_seed(_, seed):
 
 
 def set_seed(seed):
-    singleton_pool.run_each(
-        _worker_set_seed,
-        [(seed + i,) for i in xrange(singleton_pool.n_parallel)]
-    )
+    singleton_pool.run_each(_worker_set_seed,
+                            [(seed + i,) for i in xrange(singleton_pool.n_parallel)])
 
 
 def _worker_set_policy_params(G, params, scope=None):
@@ -84,17 +78,15 @@ def _worker_set_policy_params(G, params, scope=None):
     G.policy.set_param_values(params)
 
 
-def _worker_collect_one_path(G, max_path_length, scope=None):
+def _worker_collect_one_path(G, max_path_length, scope=None, mode='centralized'):
     G = _get_scoped_G(G, scope)
-    path = rollout(G.env, G.policy, max_path_length)
+    rollfn = rollout if mode == 'centralized' else decrollout
+    path = rollfn(G.env, G.policy, max_path_length)
     return path, len(path["rewards"])
 
 
-def sample_paths(
-        policy_params,
-        max_samples,
-        max_path_length=np.inf,
-        scope=None):
+def sample_paths(policy_params, max_samples, max_path_length=np.inf, scope=None,
+                 mode='centralized'):
     """
     :param policy_params: parameters for the policy. This will be updated on each worker process
     :param max_samples: desired maximum number of samples to be collected. The actual number of collected samples
@@ -103,16 +95,10 @@ def sample_paths(
     :param max_path_length: horizon / maximum length of a single trajectory
     :return: a list of collected paths
     """
-    singleton_pool.run_each(
-        _worker_set_policy_params,
-        [(policy_params, scope)] * singleton_pool.n_parallel
-    )
-    return singleton_pool.run_collect(
-        _worker_collect_one_path,
-        threshold=max_samples,
-        args=(max_path_length, scope),
-        show_prog_bar=True
-    )
+    singleton_pool.run_each(_worker_set_policy_params,
+                            [(policy_params, scope)] * singleton_pool.n_parallel)
+    return singleton_pool.run_collect(_worker_collect_one_path, threshold=max_samples,
+                                      args=(max_path_length, scope, mode), show_prog_bar=True)
 
 
 def truncate_paths(paths, max_samples):

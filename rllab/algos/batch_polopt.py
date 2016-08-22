@@ -11,6 +11,7 @@ from rllab.policies.base import Policy
 
 
 class BatchSampler(Sampler):
+
     def __init__(self, algo):
         """
         :type algo: BatchPolopt
@@ -25,12 +26,11 @@ class BatchSampler(Sampler):
 
     def obtain_samples(self, itr):
         cur_params = self.algo.policy.get_param_values()
-        paths = parallel_sampler.sample_paths(
-            policy_params=cur_params,
-            max_samples=self.algo.batch_size,
-            max_path_length=self.algo.max_path_length,
-            scope=self.algo.scope,
-        )
+        paths = parallel_sampler.sample_paths(policy_params=cur_params,
+                                              max_samples=self.algo.batch_size,
+                                              max_path_length=self.algo.max_path_length,
+                                              scope=self.algo.scope,
+                                              mode=self.algo.mode,)
         if self.algo.whole_paths:
             return paths
         else:
@@ -45,8 +45,8 @@ class BatchSampler(Sampler):
             deltas = path["rewards"] + \
                      self.algo.discount * path_baselines[1:] - \
                      path_baselines[:-1]
-            path["advantages"] = special.discount_cumsum(
-                deltas, self.algo.discount * self.algo.gae_lambda)
+            path["advantages"] = special.discount_cumsum(deltas,
+                                                         self.algo.discount * self.algo.gae_lambda)
             path["returns"] = special.discount_cumsum(path["rewards"], self.algo.discount)
             baselines.append(path_baselines[:-1])
             returns.append(path["returns"])
@@ -57,7 +57,8 @@ class BatchSampler(Sampler):
             rewards = tensor_utils.concat_tensor_list([path["rewards"] for path in paths])
             advantages = tensor_utils.concat_tensor_list([path["advantages"] for path in paths])
             env_infos = tensor_utils.concat_tensor_dict_list([path["env_infos"] for path in paths])
-            agent_infos = tensor_utils.concat_tensor_dict_list([path["agent_infos"] for path in paths])
+            agent_infos = tensor_utils.concat_tensor_dict_list(
+                [path["agent_infos"] for path in paths])
 
             if self.algo.center_adv:
                 advantages = util.center_advantages(advantages)
@@ -72,20 +73,15 @@ class BatchSampler(Sampler):
 
             ent = np.mean(self.algo.policy.distribution.entropy(agent_infos))
 
-            ev = special.explained_variance_1d(
-                np.concatenate(baselines),
-                np.concatenate(returns)
-            )
+            ev = special.explained_variance_1d(np.concatenate(baselines), np.concatenate(returns))
 
-            samples_data = dict(
-                observations=observations,
-                actions=actions,
-                rewards=rewards,
-                advantages=advantages,
-                env_infos=env_infos,
-                agent_infos=agent_infos,
-                paths=paths,
-            )
+            samples_data = dict(observations=observations,
+                                actions=actions,
+                                rewards=rewards,
+                                advantages=advantages,
+                                env_infos=env_infos,
+                                agent_infos=agent_infos,
+                                paths=paths,)
         else:
             max_path_length = max([len(path["advantages"]) for path in paths])
 
@@ -111,13 +107,11 @@ class BatchSampler(Sampler):
 
             agent_infos = [path["agent_infos"] for path in paths]
             agent_infos = tensor_utils.stack_tensor_dict_list(
-                [tensor_utils.pad_tensor_dict(p, max_path_length) for p in agent_infos]
-            )
+                [tensor_utils.pad_tensor_dict(p, max_path_length) for p in agent_infos])
 
             env_infos = [path["env_infos"] for path in paths]
             env_infos = tensor_utils.stack_tensor_dict_list(
-                [tensor_utils.pad_tensor_dict(p, max_path_length) for p in env_infos]
-            )
+                [tensor_utils.pad_tensor_dict(p, max_path_length) for p in env_infos])
 
             valids = [np.ones_like(path["returns"]) for path in paths]
             valids = np.array([tensor_utils.pad_tensor(v, max_path_length) for v in valids])
@@ -129,29 +123,23 @@ class BatchSampler(Sampler):
 
             ent = np.mean(self.algo.policy.distribution.entropy(agent_infos))
 
-            ev = special.explained_variance_1d(
-                np.concatenate(baselines),
-                np.concatenate(returns)
-            )
+            ev = special.explained_variance_1d(np.concatenate(baselines), np.concatenate(returns))
 
-            samples_data = dict(
-                observations=obs,
-                actions=actions,
-                advantages=adv,
-                rewards=rewards,
-                valids=valids,
-                agent_infos=agent_infos,
-                env_infos=env_infos,
-                paths=paths,
-            )
+            samples_data = dict(observations=obs,
+                                actions=actions,
+                                advantages=adv,
+                                rewards=rewards,
+                                valids=valids,
+                                agent_infos=agent_infos,
+                                env_infos=env_infos,
+                                paths=paths,)
 
         logger.log("fitting baseline...")
         self.algo.baseline.fit(paths)
         logger.log("fitted")
 
         logger.record_tabular('Iteration', itr)
-        logger.record_tabular('AverageDiscountedReturn',
-                              average_discounted_return)
+        logger.record_tabular('AverageDiscountedReturn', average_discounted_return)
         logger.record_tabular('AverageReturn', np.mean(undiscounted_returns))
         logger.record_tabular('ExplainedVariance', ev)
         logger.record_tabular('NumTrajs', len(paths))
@@ -170,28 +158,10 @@ class BatchPolopt(RLAlgorithm):
     This includes various policy gradient methods like vpg, npg, ppo, trpo, etc.
     """
 
-    def __init__(
-            self,
-            env,
-            policy,
-            baseline,
-            scope=None,
-            n_itr=500,
-            start_itr=0,
-            batch_size=5000,
-            max_path_length=500,
-            discount=0.99,
-            gae_lambda=1,
-            plot=False,
-            pause_for_plot=False,
-            center_adv=True,
-            positive_adv=False,
-            store_paths=False,
-            whole_paths=True,
-            sampler_cls=None,
-            sampler_args=None,
-            **kwargs
-    ):
+    def __init__(self, env, policy, baseline, scope=None, n_itr=500, start_itr=0, batch_size=5000,
+                 max_path_length=500, discount=0.99, gae_lambda=1, plot=False, pause_for_plot=False,
+                 center_adv=True, positive_adv=False, store_paths=False, whole_paths=True,
+                 sampler_cls=None, sampler_args=None, **kwargs):
         """
         :param env: Environment
         :param policy: Policy
@@ -228,6 +198,7 @@ class BatchPolopt(RLAlgorithm):
         self.positive_adv = positive_adv
         self.store_paths = store_paths
         self.whole_paths = whole_paths
+        self.mode = kwargs.pop('mode', 'centralized')
         if sampler_cls is None:
             sampler_cls = BatchSampler
         if sampler_args is None:
@@ -263,8 +234,7 @@ class BatchPolopt(RLAlgorithm):
                 if self.plot:
                     self.update_plot()
                     if self.pause_for_plot:
-                        raw_input("Plotting evaluation run: Press Enter to "
-                                  "continue...")
+                        raw_input("Plotting evaluation run: Press Enter to " "continue...")
 
         self.shutdown_worker()
 
