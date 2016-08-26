@@ -140,10 +140,20 @@ class StatefulPool(object):
                 pbar = ProgBarCounter(threshold)
             while count < threshold:
                 result, inc = collect_once(self.G, *args)
-                results.append(result)
-                count += inc
+                # for dec sampler
+                if isinstance(result, list):
+                    for i in xrange(len(result)):
+                        results.append(result[i])
+                        count += inc[i]
+                else:
+                    results.append(result)
+                    count += inc
                 if show_prog_bar:
-                    pbar.inc(inc)
+                    if isinstance(inc, list):
+                        for i in inc:
+                            pbar.inc(i)
+                    else:
+                        pbar.inc(inc)
             if show_prog_bar:
                 pbar.stop()
             return results

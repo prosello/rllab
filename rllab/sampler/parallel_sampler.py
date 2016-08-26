@@ -80,9 +80,13 @@ def _worker_set_policy_params(G, params, scope=None):
 
 def _worker_collect_one_path(G, max_path_length, scope=None, mode='centralized'):
     G = _get_scoped_G(G, scope)
-    rollfn = rollout if mode == 'centralized' else decrollout
-    path = rollfn(G.env, G.policy, max_path_length)
-    return path, len(path["rewards"])
+    if mode == 'centralized':
+        path = rollout(G.env, G.policy, max_path_length)
+        return path, len(path["rewards"])
+    else:
+        paths = decrollout(G.env, G.policy, max_path_length)
+        lengths = [len(p['rewards'])for p in paths]
+        return paths, lengths
 
 
 def sample_paths(policy_params, max_samples, max_path_length=np.inf, scope=None,
