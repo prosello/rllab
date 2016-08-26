@@ -16,29 +16,10 @@ class BatchPolopt(RLAlgorithm):
     This includes various policy gradient methods like vpg, npg, ppo, trpo, etc.
     """
 
-    def __init__(
-            self,
-            env,
-            policy,
-            baseline,
-            scope=None,
-            n_itr=500,
-            start_itr=0,
-            batch_size=5000,
-            max_path_length=500,
-            discount=0.99,
-            gae_lambda=1,
-            plot=False,
-            pause_for_plot=False,
-            center_adv=True,
-            positive_adv=False,
-            store_paths=False,
-            whole_paths=True,
-            fixed_horizon=False,
-            sampler_cls=None,
-            sampler_args=None,
-            **kwargs
-    ):
+    def __init__(self, env, policy, baseline, scope=None, n_itr=500, start_itr=0, batch_size=5000,
+                 max_path_length=500, discount=0.99, gae_lambda=1, plot=False, pause_for_plot=False,
+                 center_adv=True, positive_adv=False, store_paths=False, whole_paths=True,
+                 fixed_horizon=False, sampler_cls=None, sampler_args=None, **kwargs):
         """
         :param env: Environment
         :param policy: Policy
@@ -77,6 +58,7 @@ class BatchPolopt(RLAlgorithm):
         self.store_paths = store_paths
         self.whole_paths = whole_paths
         self.fixed_horizon = fixed_horizon
+        self.mode = kwargs.pop('mode', 'centralized')
         if sampler_cls is None:
             if self.policy.vectorized:
                 sampler_cls = VectorizedSampler
@@ -121,8 +103,7 @@ class BatchPolopt(RLAlgorithm):
                     if self.plot:
                         self.update_plot()
                         if self.pause_for_plot:
-                            raw_input("Plotting evaluation run: Press Enter to "
-                                      "continue...")
+                            raw_input("Plotting evaluation run: Press Enter to " "continue...")
         self.shutdown_worker()
 
     def log_diagnostics(self, paths):

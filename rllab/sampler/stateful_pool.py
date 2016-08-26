@@ -10,6 +10,7 @@ import sys
 
 
 class ProgBarCounter(object):
+
     def __init__(self, total_count):
         self.total_count = total_count
         self.max_progress = 1000000
@@ -38,6 +39,7 @@ class SharedGlobal(object):
 
 
 class StatefulPool(object):
+
     def __init__(self):
         self.n_parallel = 1
         self.pool = None
@@ -56,10 +58,8 @@ class StatefulPool(object):
         if n_parallel > 1:
             self.queue = mp.Queue()
             self.worker_queue = mp.Queue()
-            self.pool = MemmapingPool(
-                self.n_parallel,
-                temp_folder="/tmp",
-            )
+            self.pool = MemmapingPool(self.n_parallel,
+                                      temp_folder="/tmp",)
 
     def run_each(self, runner, args_list=None):
         """
@@ -72,9 +72,7 @@ class StatefulPool(object):
             args_list = [tuple()] * self.n_parallel
         assert len(args_list) == self.n_parallel
         if self.n_parallel > 1:
-            results = self.pool.map_async(
-                _worker_run_each, [(runner, args) for args in args_list]
-            )
+            results = self.pool.map_async(_worker_run_each, [(runner, args) for args in args_list])
             for i in range(self.n_parallel):
                 self.worker_queue.get()
             for i in range(self.n_parallel):
@@ -115,10 +113,9 @@ class StatefulPool(object):
             manager = mp.Manager()
             counter = manager.Value('i', 0)
             lock = manager.RLock()
-            results = self.pool.map_async(
-                _worker_run_collect,
-                [(collect_once, counter, lock, threshold, args)] * self.n_parallel
-            )
+            results = self.pool.map_async(_worker_run_collect,
+                                          [(collect_once, counter, lock, threshold, args)] *
+                                          self.n_parallel)
             if show_prog_bar:
                 pbar = ProgBarCounter(threshold)
             last_value = 0
@@ -142,16 +139,14 @@ class StatefulPool(object):
                 result, inc = collect_once(self.G, *args)
                 # for dec sampler
                 if isinstance(result, list):
-                    for i in xrange(len(result)):
-                        results.append(result[i])
-                        count += inc[i]
+                    results.extend(result)
+                    count += sum(inc)
                 else:
                     results.append(result)
                     count += inc
                 if show_prog_bar:
                     if isinstance(inc, list):
-                        for i in inc:
-                            pbar.inc(i)
+                        pbar.inc(sum(inc))
                     else:
                         pbar.inc(inc)
             if show_prog_bar:
