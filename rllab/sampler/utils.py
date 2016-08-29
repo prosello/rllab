@@ -17,8 +17,10 @@ def rollout(env, agent, max_path_length=np.inf, animated=False, speedup=1):
         a, agent_info = agent.get_action(o)
         next_o, r, d, env_info = env.step(a)
         observations.append(env.observation_space.flatten(o))
-        assert (r == r[0]).all()
-        rewards.append(r[0]) 
+        if isinstance(r, list):
+            assert (r == r[0]).all()
+            r = r[0]
+        rewards.append(r)
         actions.append(env.action_space.flatten(a))
         agent_infos.append(agent_info)
         env_infos.append(env_info)
@@ -67,5 +69,5 @@ def decrollout(env, agent, max_path_length=np.inf, animated=False, speedup=1):
                   rewards=tensor_utils.stack_tensor_list(rewards[i]),
                   agent_infos=tensor_utils.stack_tensor_dict_list(agent_infos[i]),
                   env_infos=tensor_utils.stack_tensor_dict_list(env_infos[i]),)
-                  for i in xrange(n_agents)]
+             for i in xrange(n_agents)]
     return trajs
