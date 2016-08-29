@@ -17,7 +17,7 @@ def rollout(env, agent, max_path_length=np.inf, animated=False, speedup=1):
         a, agent_info = agent.get_action(o)
         next_o, r, d, env_info = env.step(a)
         observations.append(env.observation_space.flatten(o))
-        if isinstance(r, list) or isinstance(r, np.ndarray):
+        if isinstance(r, (list, np.ndarray)):
             assert (r == r[0]).all()
             r = r[0]
         rewards.append(r)
