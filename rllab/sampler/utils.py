@@ -122,7 +122,7 @@ def chunk_decrollout(env, agent, max_path_length=np.inf, chunked_path_length=32,
     trajs = [dict(observations=tensor_utils.stack_tensor_list(chunked_observations[i]),
                   actions=tensor_utils.stack_tensor_list(chunked_actions[i]),
                   rewards=tensor_utils.stack_tensor_list(chunked_rewards[i]),
-                  agent_infos=tensor_utils.stack_tensor_dict_list(agent_infos[i]),
-                  env_infos=tensor_utils.stack_tensor_dict_list(env_infos[i]),)
+                  agent_infos=tensor_utils.stack_tensor_dict_list(chunked_agent_infos[i]),
+                  env_infos=tensor_utils.stack_tensor_dict_list(chunked_env_infos[i]),)
              for i in range(len(chunked_actions))]
     return trajs
