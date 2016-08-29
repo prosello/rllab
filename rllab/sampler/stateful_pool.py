@@ -178,9 +178,17 @@ def _worker_run_collect(all_args):
                 if counter.value >= threshold:
                     return collected
             result, inc = collect_once(singleton_pool.G, *args)
-            collected.append(result)
+            ####
+            # for dec sampler
+            if isinstance(result, list):
+                collected.extend(result)
+            else:
+                collected.append(result)
             with lock:
-                counter.value += inc
+                if isinstance(result, list):
+                    counter.value += sum(inc)
+                else:
+                    counter.value += inc
                 if counter.value >= threshold:
                     return collected
     except Exception:
