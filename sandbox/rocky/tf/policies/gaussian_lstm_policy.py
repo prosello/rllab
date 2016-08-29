@@ -12,18 +12,17 @@ from rllab.misc.overrides import overrides
 
 
 class GaussianLSTMPolicy(StochasticPolicy, LayersPowered, Serializable):
-    def __init__(
-            self,
-            name,
-            env_spec,
-            hidden_dim=32,
-            feature_network=None,
-            state_include_action=True,
-            hidden_nonlinearity=tf.tanh,
-            learn_std=True,
-            init_std=1.0,
-            output_nonlinearity=None,
-    ):
+
+    def __init__(self,
+                 name,
+                 env_spec,
+                 hidden_dim=32,
+                 feature_network=None,
+                 state_include_action=True,
+                 hidden_nonlinearity=tf.tanh,
+                 learn_std=True,
+                 init_std=1.0,
+                 output_nonlinearity=None,):
         """
         :param env_spec: A spec for the env.
         :param hidden_dim: dimension of hidden layer
@@ -42,10 +41,7 @@ class GaussianLSTMPolicy(StochasticPolicy, LayersPowered, Serializable):
             else:
                 input_dim = obs_dim
 
-            l_input = L.InputLayer(
-                shape=(None, None, input_dim),
-                name="input"
-            )
+            l_input = L.InputLayer(shape=(None, None, input_dim), name="input")
 
             if feature_network is None:
                 feature_dim = input_dim
@@ -55,66 +51,47 @@ class GaussianLSTMPolicy(StochasticPolicy, LayersPowered, Serializable):
                 feature_dim = feature_network.output_layer.output_shape[-1]
                 l_flat_feature = feature_network.output_layer
                 l_feature = L.OpLayer(
-                    l_flat_feature,
-                    extras=[l_input],
-                    name="reshape_feature",
-                    op=lambda flat_feature, input: tf.reshape(
-                        flat_feature,
-                        tf.pack([tf.shape(input)[0], tf.shape(input)[1], feature_dim])
-                    ),
-                    shape_op=lambda _, input_shape: (input_shape[0], input_shape[1], feature_dim)
-                )
+                    l_flat_feature, extras=[l_input], name="reshape_feature",
+                    op=lambda flat_feature, input: tf.reshape(flat_feature, tf.pack([tf.shape(input)[0], tf.shape(input)[1], feature_dim])),
+                    shape_op=lambda _, input_shape: (input_shape[0], input_shape[1], feature_dim))
 
-            mean_network = LSTMNetwork(
-                input_shape=(feature_dim,),
-                input_layer=l_feature,
-                output_dim=action_dim,
-                hidden_dim=hidden_dim,
-                hidden_nonlinearity=hidden_nonlinearity,
-                output_nonlinearity=output_nonlinearity,
-                name="mean_network"
-            )
+            mean_network = LSTMNetwork(input_shape=(feature_dim,), input_layer=l_feature,
+                                       output_dim=action_dim, hidden_dim=hidden_dim,
+                                       hidden_nonlinearity=hidden_nonlinearity,
+                                       output_nonlinearity=output_nonlinearity, name="mean_network")
 
-            l_log_std = L.ParamLayer(
-                mean_network.input_layer,
-                num_units=action_dim,
-                param=tf.constant_initializer(np.log(init_std)),
-                name="output_log_std",
-                trainable=learn_std,
-            )
+            l_log_std = L.ParamLayer(mean_network.input_layer,
+                                     num_units=action_dim,
+                                     param=tf.constant_initializer(np.log(init_std)),
+                                     name="output_log_std",
+                                     trainable=learn_std,)
 
-            l_step_log_std = L.ParamLayer(
-                mean_network.step_input_layer,
-                num_units=action_dim,
-                param=l_log_std.param,
-                name="step_output_log_std",
-                trainable=learn_std,
-            )
+            l_step_log_std = L.ParamLayer(mean_network.step_input_layer,
+                                          num_units=action_dim,
+                                          param=l_log_std.param,
+                                          name="step_output_log_std",
+                                          trainable=learn_std,)
 
             self.mean_network = mean_network
             self.feature_network = feature_network
             self.l_input = l_input
             self.state_include_action = state_include_action
 
-            flat_input_var = tf.placeholder(dtype=tf.float32, shape=(None, input_dim), name="flat_input")
+            flat_input_var = tf.placeholder(dtype=tf.float32, shape=(None, input_dim),
+                                            name="flat_input")
             if feature_network is None:
                 feature_var = flat_input_var
             else:
-                feature_var = L.get_output(l_flat_feature, {feature_network.input_layer: flat_input_var})
+                feature_var = L.get_output(l_flat_feature,
+                                           {feature_network.input_layer: flat_input_var})
 
-            self.f_step_mean_std = tensor_utils.compile_function(
-                [
-                    flat_input_var,
-                    mean_network.step_prev_hidden_layer.input_var,
-                    mean_network.step_prev_cell_layer.input_var
-                ],
-                L.get_output([
-                    mean_network.step_output_layer,
-                    l_step_log_std,
-                    mean_network.step_hidden_layer,
-                    mean_network.step_cell_layer
-                ], {mean_network.step_input_layer: feature_var})
-            )
+            self.f_step_mean_std = tensor_utils.compile_function([
+                flat_input_var, mean_network.step_prev_hidden_layer.input_var,
+                mean_network.step_prev_cell_layer.input_var
+            ], L.get_output([
+                mean_network.step_output_layer, l_step_log_std, mean_network.step_hidden_layer,
+                mean_network.step_cell_layer
+            ], {mean_network.step_input_layer: feature_var}))
 
             self.l_log_std = l_log_std
 
@@ -144,21 +121,18 @@ class GaussianLSTMPolicy(StochasticPolicy, LayersPowered, Serializable):
         else:
             all_input_var = obs_var
         if self.feature_network is None:
-            means, log_stds = L.get_output(
-                [self.mean_network.output_layer, self.l_log_std],
-                {self.l_input: all_input_var}
-            )
+            means, log_stds = L.get_output([self.mean_network.output_layer, self.l_log_std],
+                                           {self.l_input: all_input_var})
         else:
             flat_input_var = tf.reshape(all_input_var, (-1, self.input_dim))
-            means, log_stds = L.get_output(
-                [self.mean_network.output_layer, self.l_log_std],
-                {self.l_input: all_input_var, self.feature_network.input_layer: flat_input_var}
-            )
+            means, log_stds = L.get_output([self.mean_network.output_layer, self.l_log_std],
+                                           {self.l_input: all_input_var,
+                                            self.feature_network.input_layer: flat_input_var})
         return dict(mean=means, log_std=log_stds)
 
     @property
     def vectorized(self):
-        return True
+        return False  #True
 
     def reset(self, dones=None):
         if dones is None:
@@ -187,14 +161,12 @@ class GaussianLSTMPolicy(StochasticPolicy, LayersPowered, Serializable):
         flat_obs = self.observation_space.flatten_n(observations)
         if self.state_include_action:
             assert self.prev_actions is not None
-            all_input = np.concatenate([
-                flat_obs,
-                self.prev_actions
-            ], axis=-1)
+            all_input = np.concatenate([flat_obs, self.prev_actions], axis=-1)
         else:
             all_input = flat_obs
         # probs, hidden_vec, cell_vec = self.f_step_prob(all_input, self.prev_hiddens, self.prev_cells)
-        means, log_stds, hidden_vec, cell_vec = self.f_step_mean_std(all_input, self.prev_hiddens, self.prev_cells)
+        means, log_stds, hidden_vec, cell_vec = self.f_step_mean_std(all_input, self.prev_hiddens,
+                                                                     self.prev_cells)
         rnd = np.random.normal(size=means.shape)
         actions = rnd * np.exp(log_stds) + means
         prev_actions = self.prev_actions
@@ -218,8 +190,6 @@ class GaussianLSTMPolicy(StochasticPolicy, LayersPowered, Serializable):
     @property
     def state_info_specs(self):
         if self.state_include_action:
-            return [
-                ("prev_action", (self.action_dim,)),
-            ]
+            return [("prev_action", (self.action_dim,)),]
         else:
             return []
