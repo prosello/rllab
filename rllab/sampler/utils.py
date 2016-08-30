@@ -130,3 +130,51 @@ def chunk_decrollout(env, agent, max_path_length=np.inf, chunked_path_length=32,
                   env_infos=tensor_utils.stack_tensor_dict_list(chunked_env_infos[ag][i]),)
              for i in range(len(chunked_actions)) for ag in range(n_agents)]
     return trajs
+
+
+
+def chunk_rollout(env, agent, max_path_length=np.inf, chunked_path_length=128, discount=1.,
+                     animated=False, speedup=1):
+    observations = []
+    actions = []
+    rewards = []
+    agent_infos = []
+    env_infos = []
+    o = env.reset()
+    agent.reset()
+    path_length = 0
+
+    while path_length < max_path_length:
+        a, agent_info = agent.get_action(o)
+        next_o, r, d, env_info = env.step(a)
+        observations.append(env.observation_space.flatten(o))
+        if isinstance(r, (list, np.ndarray)):
+            assert (r == r[0]).all()
+            r = r[0]
+        rewards.append(r)
+        actions.append(env.action_space.flatten(a))
+        agent_infos.append(agent_info)
+        env_infos.append(env_info)
+        path_length += 1
+        if d:
+            break
+        o = next_o
+
+    chunked_observations = [observations[i:i + chunked_path_length]
+                             for i in range(0, len(observations), chunked_path_length)]
+    chunked_actions = [actions[i:i + chunked_path_length]
+                        for i in range(0, len(actions), chunked_path_length)]
+    chunked_rewards = [rewards[i:i + chunked_path_length]
+                        for i in range(0, len(rewards), chunked_path_length)]
+    chunked_agent_infos = [agent_infos[i:i + chunked_path_length]
+                            for i in range(0, len(agent_infos), chunked_path_length)]
+    chunked_env_infos = [env_infos[i:i + chunked_path_length]
+                          for i in range(0, len(env_infos), chunked_path_length)]
+
+    trajs = [dict(observations=tensor_utils.stack_tensor_list(chunked_observations[i]),
+                  actions=tensor_utils.stack_tensor_list(chunked_actions[i]),
+                  rewards=tensor_utils.stack_tensor_list(chunked_rewards[i]),
+                  agent_infos=tensor_utils.stack_tensor_dict_list(chunked_agent_infos[i]),
+                  env_infos=tensor_utils.stack_tensor_dict_list(chunked_env_infos[i]),)
+             for i in range(len(chunked_actions))] 
+    return trajs
