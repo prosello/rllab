@@ -47,6 +47,8 @@ def decrollout(env, agent, max_path_length=np.inf, animated=False, speedup=1):
     olist = env.reset()
     agent.reset()
     path_length = 0
+    if animated:
+        env.render()
     while path_length < max_path_length:
         alist = []
         for i, o in enumerate(olist):
@@ -64,6 +66,8 @@ def decrollout(env, agent, max_path_length=np.inf, animated=False, speedup=1):
         if d:
             break
         olist = next_olist
+        if animated:
+            env.render()
     trajs = [dict(observations=tensor_utils.stack_tensor_list(observations[i]),
                   actions=tensor_utils.stack_tensor_list(actions[i]),
                   rewards=tensor_utils.stack_tensor_list(rewards[i]),

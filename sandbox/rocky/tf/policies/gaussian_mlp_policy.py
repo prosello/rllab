@@ -15,24 +15,12 @@ import tensorflow as tf
 
 
 class GaussianMLPPolicy(StochasticPolicy, LayersPowered, Serializable):
-    def __init__(
-            self,
-            name,
-            env_spec,
-            hidden_sizes=(32, 32),
-            learn_std=True,
-            init_std=1.0,
-            adaptive_std=False,
-            std_share_network=False,
-            std_hidden_sizes=(32, 32),
-            min_std=1e-6,
-            std_hidden_nonlinearity=tf.nn.tanh,
-            hidden_nonlinearity=tf.nn.tanh,
-            output_nonlinearity=None,
-            mean_network=None,
-            std_network=None,
-            std_parametrization='exp'
-    ):
+
+    def __init__(self, name, env_spec, hidden_sizes=(32, 32), learn_std=True, init_std=1.0,
+                 adaptive_std=False, std_share_network=False, std_hidden_sizes=(32, 32),
+                 min_std=1e-6, std_hidden_nonlinearity=tf.nn.tanh, hidden_nonlinearity=tf.nn.tanh,
+                 output_nonlinearity=None, mean_network=None, std_network=None,
+                 std_parametrization='exp'):
         """
         :param env_spec:
         :param hidden_sizes: list of sizes for the fully-connected hidden layers
@@ -62,14 +50,12 @@ class GaussianMLPPolicy(StochasticPolicy, LayersPowered, Serializable):
 
             # create network
             if mean_network is None:
-                mean_network = MLP(
-                    name="mean_network",
-                    input_shape=(obs_dim,),
-                    output_dim=action_dim,
-                    hidden_sizes=hidden_sizes,
-                    hidden_nonlinearity=hidden_nonlinearity,
-                    output_nonlinearity=output_nonlinearity,
-                )
+                mean_network = MLP(name="mean_network",
+                                   input_shape=(obs_dim,),
+                                   output_dim=action_dim,
+                                   hidden_sizes=hidden_sizes,
+                                   hidden_nonlinearity=hidden_nonlinearity,
+                                   output_nonlinearity=output_nonlinearity,)
             self._mean_network = mean_network
 
             l_mean = mean_network.output_layer
@@ -79,15 +65,13 @@ class GaussianMLPPolicy(StochasticPolicy, LayersPowered, Serializable):
                 l_std_param = std_network.output_layer
             else:
                 if adaptive_std:
-                    std_network = MLP(
-                        name="std_network",
-                        input_shape=(obs_dim,),
-                        input_layer=mean_network.input_layer,
-                        output_dim=action_dim,
-                        hidden_sizes=std_hidden_sizes,
-                        hidden_nonlinearity=std_hidden_nonlinearity,
-                        output_nonlinearity=None,
-                    )
+                    std_network = MLP(name="std_network",
+                                      input_shape=(obs_dim,),
+                                      input_layer=mean_network.input_layer,
+                                      output_dim=action_dim,
+                                      hidden_sizes=std_hidden_sizes,
+                                      hidden_nonlinearity=std_hidden_nonlinearity,
+                                      output_nonlinearity=None,)
                     l_std_param = std_network.output_layer
                 else:
                     if std_parametrization == 'exp':
@@ -96,13 +80,11 @@ class GaussianMLPPolicy(StochasticPolicy, LayersPowered, Serializable):
                         init_std_param = np.log(np.exp(init_std) - 1)
                     else:
                         raise NotImplementedError
-                    l_std_param = L.ParamLayer(
-                        mean_network.input_layer,
-                        num_units=action_dim,
-                        param=tf.constant_initializer(init_std_param),
-                        name="output_std_param",
-                        trainable=learn_std,
-                    )
+                    l_std_param = L.ParamLayer(mean_network.input_layer,
+                                               num_units=action_dim,
+                                               param=tf.constant_initializer(init_std_param),
+                                               name="output_std_param",
+                                               trainable=learn_std,)
 
             self.std_parametrization = std_parametrization
 
@@ -134,14 +116,12 @@ class GaussianMLPPolicy(StochasticPolicy, LayersPowered, Serializable):
             mean_var = dist_info_sym["mean"]
             log_std_var = dist_info_sym["log_std"]
 
-            self._f_dist = tensor_utils.compile_function(
-                inputs=[obs_var],
-                outputs=[mean_var, log_std_var],
-            )
+            self._f_dist = tensor_utils.compile_function(inputs=[obs_var],
+                                                         outputs=[mean_var, log_std_var],)
 
     @property
     def vectorized(self):
-        return True
+        return False  #True
 
     def dist_info_sym(self, obs_var, state_info_vars=None):
         mean_var, std_param_var = L.get_output([self._l_mean, self._l_std_param], obs_var)
