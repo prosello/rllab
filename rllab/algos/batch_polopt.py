@@ -199,6 +199,8 @@ class BatchPolopt(RLAlgorithm):
         self.store_paths = store_paths
         self.whole_paths = whole_paths
         self.mode = kwargs.pop('mode', 'centralized')
+        self.max_path_length_limit = kwargs.pop('max_path_length_limit', 500)
+        self.update_max_path_length = kwargs.pop('update_max_path_length', False)
         if sampler_cls is None:
             sampler_cls = BatchSampler
         if sampler_args is None:
@@ -228,6 +230,9 @@ class BatchPolopt(RLAlgorithm):
                 params["algo"] = self
                 if self.store_paths:
                     params["paths"] = samples_data["paths"]
+                if self.update_max_path_length:
+                    if self.max_path_length < self.max_path_length_limit:
+                        self.max_path_length += 2
                 logger.save_itr_params(itr, params)
                 logger.log("saved")
                 logger.dump_tabular(with_prefix=False)
