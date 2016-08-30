@@ -232,7 +232,7 @@ class BatchPolopt(RLAlgorithm):
                     params["paths"] = samples_data["paths"]
                 if self.update_max_path_length:
                     if self.max_path_length < self.max_path_length_limit:
-                        self.max_path_length += 2
+                        self.max_path_length += 2  # ???
                 logger.save_itr_params(itr, params)
                 logger.log("saved")
                 logger.dump_tabular(with_prefix=False)
@@ -240,7 +240,8 @@ class BatchPolopt(RLAlgorithm):
                     self.update_plot()
                     if self.pause_for_plot:
                         raw_input("Plotting evaluation run: Press Enter to " "continue...")
-
+                self.shutdown_worker()
+                self.start_worker()
         self.shutdown_worker()
 
     def log_diagnostics(self, paths):
