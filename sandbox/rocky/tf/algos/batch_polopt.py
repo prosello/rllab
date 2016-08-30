@@ -108,7 +108,7 @@ class BatchPolopt(RLAlgorithm):
 
                     # XXX
                     if self.anneal_step_size:
-                        if itr % self.anneal_step_size == 0:
+                        if itr > 0 and itr % self.anneal_step_size == 0:
                             if self.step_size > self.step_size_limit:
                                 self.update_step_size(self.step_size / 2.0)
 
