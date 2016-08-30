@@ -61,7 +61,8 @@ class BatchPolopt(RLAlgorithm):
         self.mode = kwargs.pop('mode', 'centralized')
         self.max_path_length_limit = kwargs.pop('max_path_length_limit', 500)
         self.update_max_path_length = kwargs.pop('update_max_path_length', False)
-
+        self.anneal_step_size = kwargs.pop('anneal_step_size', 0)
+        self.step_size_limit = kwargs.pop('step_size_limit', 0.01)
         if sampler_cls is None:
             if self.policy.vectorized:
                 sampler_cls = VectorizedSampler
@@ -104,6 +105,12 @@ class BatchPolopt(RLAlgorithm):
                         if self.max_path_length < self.max_path_length_limit:
                             self.max_path_length += 2  # ???
                             logger.log("Max path length: %d" % self.max_path_length)
+
+                    # XXX
+                    if self.anneal_step_size:
+                        if itr % self.anneal_step_size == 0:
+                            if self.step_size > self.step_size_limit:
+                                self.update_step_size(self.step_size / 2.0)
 
                     logger.save_itr_params(itr, params)
                     logger.log("saved")
