@@ -233,6 +233,7 @@ class BatchPolopt(RLAlgorithm):
                 if self.update_max_path_length:
                     if self.max_path_length < self.max_path_length_limit:
                         self.max_path_length += 2  # ???
+                    logger.log("Max path length: %d" % self.max_path_length)
                 logger.save_itr_params(itr, params)
                 logger.log("saved")
                 logger.dump_tabular(with_prefix=False)
