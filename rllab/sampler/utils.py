@@ -45,7 +45,7 @@ def decrollout(env, agent, max_path_length=np.inf, animated=False, speedup=1):
     agent_infos = [[] for _ in xrange(n_agents)]
     env_infos = [[] for _ in xrange(n_agents)]
     olist = env.reset()
-    agent.reset()
+    agent.reset(dones=[True for _ in n_agents])
     path_length = 0
     if animated:
         env.render()
@@ -86,7 +86,7 @@ def chunk_decrollout(env, agent, max_path_length=np.inf, chunked_path_length=32,
     agent_infos = [[] for _ in xrange(n_agents)]
     env_infos = [[] for _ in xrange(n_agents)]
     olist = env.reset()
-    agent.reset()
+    agent.reset(dones=[True for _ in n_agents])
     path_length = 0
     while path_length < max_path_length:
         alist = []
