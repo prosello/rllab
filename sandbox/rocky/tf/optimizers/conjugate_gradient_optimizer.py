@@ -10,6 +10,7 @@ from sandbox.rocky.tf.misc import tensor_utils
 
 
 class PerlmutterHvp(object):
+
     def __init__(self):
         self.target = None
         self.reg_coeff = None
@@ -30,24 +31,20 @@ class PerlmutterHvp(object):
         def Hx_plain():
             Hx_plain_splits = tf.gradients(
                 tf.reduce_sum(
-                    tf.pack([tf.reduce_sum(g * x) for g, x in itertools.izip(constraint_grads, xs)])
-                ),
-                params
-            )
+                    tf.pack([tf.reduce_sum(g * x) for g, x in itertools.izip(constraint_grads, xs)
+                            ])), params)
             for idx, (Hx, param) in enumerate(zip(Hx_plain_splits, params)):
                 if Hx is None:
                     Hx_plain_splits[idx] = tf.zeros_like(param)
             return tensor_utils.flatten_tensor_variables(Hx_plain_splits)
 
         self.opt_fun = ext.lazydict(
-            f_Hx_plain=lambda: tensor_utils.compile_function(
-                inputs=inputs + xs,
-                outputs=Hx_plain(),
-                log_name="f_Hx_plain",
-            ),
-        )
+            f_Hx_plain=lambda: tensor_utils.compile_function(inputs=inputs + xs,
+                                                             outputs=Hx_plain(),
+                                                             log_name="f_Hx_plain",),)
 
     def build_eval(self, inputs):
+
         def eval(x):
             xs = tuple(self.target.flat_to_params(x, trainable=True))
             ret = self.opt_fun["f_Hx_plain"](*(inputs + xs)) + self.reg_coeff * x
@@ -57,6 +54,7 @@ class PerlmutterHvp(object):
 
 
 class FiniteDifferenceHvp(object):
+
     def __init__(self, base_eps=1e-8, symmetric=True, grad_clip=None):
         self.base_eps = base_eps
         self.symmetric = symmetric
@@ -94,15 +92,13 @@ class FiniteDifferenceHvp(object):
             return hx
 
         self.opt_fun = ext.lazydict(
-            f_grad=lambda: tensor_utils.compile_function(
-                inputs=inputs,
-                outputs=flat_grad,
-                log_name="f_grad",
-            ),
-            f_Hx_plain=lambda: f_Hx_plain,
-        )
+            f_grad=lambda: tensor_utils.compile_function(inputs=inputs,
+                                                         outputs=flat_grad,
+                                                         log_name="f_grad",),
+            f_Hx_plain=lambda: f_Hx_plain,)
 
     def build_eval(self, inputs):
+
         def eval(x):
             xs = tuple(self.target.flat_to_params(x, trainable=True))
             ret = self.opt_fun["f_Hx_plain"](*(inputs + xs)) + self.reg_coeff * x
@@ -118,16 +114,8 @@ class ConjugateGradientOptimizer(Serializable):
     of the loss function.
     """
 
-    def __init__(
-            self,
-            cg_iters=10,
-            reg_coeff=1e-5,
-            subsample_factor=1.,
-            backtrack_ratio=0.8,
-            max_backtracks=15,
-            debug_nan=False,
-            accept_violation=False,
-            hvp_approach=None):
+    def __init__(self, cg_iters=10, reg_coeff=1e-5, subsample_factor=1., backtrack_ratio=0.8,
+                 max_backtracks=15, debug_nan=False, accept_violation=False, hvp_approach=None):
         """
 
         :param cg_iters: The number of CG iterations used to calculate A^-1 g
@@ -157,8 +145,8 @@ class ConjugateGradientOptimizer(Serializable):
             hvp_approach = PerlmutterHvp()
         self._hvp_approach = hvp_approach
 
-    def update_opt(self, loss, target, leq_constraint, inputs, extra_inputs=None, constraint_name="constraint", *args,
-                   **kwargs):
+    def update_opt(self, loss, target, leq_constraint, inputs, extra_inputs=None,
+                   constraint_name="constraint", *args, **kwargs):
         """
         :param loss: Symbolic expression for the loss function.
         :param target: A parameterized object to optimize over. It should implement methods of the
@@ -185,35 +173,26 @@ class ConjugateGradientOptimizer(Serializable):
                 grads[idx] = tf.zeros_like(param)
         flat_grad = tensor_utils.flatten_tensor_variables(grads)
 
-        self._hvp_approach.update_opt(f=constraint_term, target=target, inputs=inputs + extra_inputs,
-                                      reg_coeff=self._reg_coeff)
+        self._hvp_approach.update_opt(f=constraint_term, target=target,
+                                      inputs=inputs + extra_inputs, reg_coeff=self._reg_coeff)
 
         self._target = target
         self._max_constraint_val = constraint_value
         self._constraint_name = constraint_name
 
         self._opt_fun = ext.lazydict(
-            f_loss=lambda: tensor_utils.compile_function(
-                inputs=inputs + extra_inputs,
-                outputs=loss,
-                log_name="f_loss",
-            ),
-            f_grad=lambda: tensor_utils.compile_function(
-                inputs=inputs + extra_inputs,
-                outputs=flat_grad,
-                log_name="f_grad",
-            ),
-            f_constraint=lambda: tensor_utils.compile_function(
-                inputs=inputs + extra_inputs,
-                outputs=constraint_term,
-                log_name="constraint",
-            ),
-            f_loss_constraint=lambda: tensor_utils.compile_function(
-                inputs=inputs + extra_inputs,
-                outputs=[loss, constraint_term],
-                log_name="f_loss_constraint",
-            ),
-        )
+            f_loss=lambda: tensor_utils.compile_function(inputs=inputs + extra_inputs,
+                                                         outputs=loss,
+                                                         log_name="f_loss",),
+            f_grad=lambda: tensor_utils.compile_function(inputs=inputs + extra_inputs,
+                                                         outputs=flat_grad,
+                                                         log_name="f_grad",),
+            f_constraint=lambda: tensor_utils.compile_function(inputs=inputs + extra_inputs,
+                                                               outputs=constraint_term,
+                                                               log_name="constraint",),
+            f_loss_constraint=lambda: tensor_utils.compile_function(inputs=inputs + extra_inputs,
+                                                                    outputs=[loss, constraint_term],
+                                                                    log_name="f_loss_constraint",),)
 
     def loss(self, inputs, extra_inputs=None):
         inputs = tuple(inputs)
@@ -238,8 +217,8 @@ class ConjugateGradientOptimizer(Serializable):
             subsample_inputs = tuple()
             for inputs_grouped in subsample_grouped_inputs:
                 n_samples = len(inputs_grouped[0])
-                inds = np.random.choice(
-                    n_samples, int(n_samples * self._subsample_factor), replace=False)
+                inds = np.random.choice(n_samples, int(n_samples * self._subsample_factor),
+                                        replace=False)
                 subsample_inputs += tuple([x[inds] for x in inputs_grouped])
         else:
             subsample_inputs = inputs
@@ -255,29 +234,28 @@ class ConjugateGradientOptimizer(Serializable):
 
         descent_direction = krylov.cg(Hx, flat_g, cg_iters=self._cg_iters)
 
-        initial_step_size = np.sqrt(
-            2.0 * self._max_constraint_val * (1. / (descent_direction.dot(Hx(descent_direction)) + 1e-8))
-        )
+        initial_step_size = np.sqrt(2.0 * self._max_constraint_val *
+                                    (1. / (descent_direction.dot(Hx(descent_direction)) + 1e-8)))
         if np.isnan(initial_step_size):
             initial_step_size = 1.
         flat_descent_step = initial_step_size * descent_direction
-
+        logger.log("initial_step_size: %f" % initial_step_size)
         logger.log("descent direction computed")
 
         prev_param = np.copy(self._target.get_param_values(trainable=True))
         n_iter = 0
-        for n_iter, ratio in enumerate(self._backtrack_ratio ** np.arange(self._max_backtracks)):
+        for n_iter, ratio in enumerate(self._backtrack_ratio**np.arange(self._max_backtracks)):
             cur_step = ratio * flat_descent_step
             cur_param = prev_param - cur_step
             self._target.set_param_values(cur_param, trainable=True)
             loss, constraint_val = self._opt_fun["f_loss_constraint"](*(inputs + extra_inputs))
             if self._debug_nan and np.isnan(constraint_val):
-                import ipdb;
+                import ipdb
                 ipdb.set_trace()
             if loss < loss_before and constraint_val <= self._max_constraint_val:
                 break
-        if (np.isnan(loss) or np.isnan(constraint_val) or loss >= loss_before or constraint_val >=
-            self._max_constraint_val) and not self._accept_violation:
+        if (np.isnan(loss) or np.isnan(constraint_val) or loss >= loss_before or
+                constraint_val >= self._max_constraint_val) and not self._accept_violation:
             logger.log("Line search condition violated. Rejecting the step!")
             if np.isnan(loss):
                 logger.log("Violated because loss is NaN")
