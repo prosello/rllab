@@ -1,4 +1,4 @@
-from rllab.sampler.utils import rollout, decrollout
+from rllab.sampler.utils import rollout, decrollout, chunk_decrollout, chunk_rollout
 from rllab.sampler.stateful_pool import singleton_pool, SharedGlobal
 from rllab.misc import ext
 from rllab.misc import logger
@@ -83,10 +83,20 @@ def _worker_collect_one_path(G, max_path_length, scope=None, mode='centralized')
     if mode == 'centralized':
         path = rollout(G.env, G.policy, max_path_length)
         return path, len(path["rewards"])
-    else:
+    elif mode == 'decentralized':
         paths = decrollout(G.env, G.policy, max_path_length)
-        lengths = [len(p['rewards'])for p in paths]
+        lengths = [len(p['rewards']) for p in paths]
         return paths, lengths
+    elif mode == 'chunk_decentralized':
+        paths = chunk_decrollout(G.env, G.policy, max_path_length)
+        lengths = [len(p['rewards']) for p in paths]
+        return paths, lengths
+    elif mode == 'chunk_centralized':
+        paths = chunk_rollout(G.env, G.policy, max_path_length)
+        lengths = [len(p['rewards']) for p in paths]
+        return paths, lengths
+    else:
+        raise NotImplementedError()
 
 
 def sample_paths(policy_params, max_samples, max_path_length=np.inf, scope=None,
