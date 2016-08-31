@@ -45,19 +45,17 @@ def decrollout(env, agent, max_path_length=np.inf, animated=False, speedup=1):
     agent_infos = [[] for _ in xrange(n_agents)]
     env_infos = [[] for _ in xrange(n_agents)]
     olist = env.reset()
-    agent.reset()
+    agent.reset(dones=[True for _ in range(n_agents)])
     path_length = 0
     if animated:
         env.render()
     while path_length < max_path_length:
-        alist = []
+        alist, agent_info_list = agent.get_actions(olist)
+        agent_info_list = tensor_utils.split_tensor_dict_list(agent_info_list)
         for i, o in enumerate(olist):
-            a, agent_info = agent.get_action(o)
-            alist.append(a)
             observations[i].append(env.observation_space.flatten(o))
-            actions[i].append(env.action_space.flatten(a))
-            agent_infos[i].append(agent_info)
-
+            actions[i].append(env.action_space.flatten(alist[i]))
+            agent_infos[i].append(agent_info_list[i])
         next_olist, rlist, d, env_info = env.step(np.asarray(alist))
         for i, r in enumerate(rlist):
             rewards[i].append(r)
@@ -88,7 +86,7 @@ def chunk_decrollout(env, agent, max_path_length=np.inf, chunked_path_length=32,
     agent_infos = [[] for _ in xrange(n_agents)]
     env_infos = [[] for _ in xrange(n_agents)]
     olist = env.reset()
-    agent.reset()
+    agent.reset(dones=[True for _ in n_agents])
     path_length = 0
     while path_length < max_path_length:
         alist = []
@@ -134,9 +132,8 @@ def chunk_decrollout(env, agent, max_path_length=np.inf, chunked_path_length=32,
     return trajs
 
 
-
 def chunk_rollout(env, agent, max_path_length=np.inf, chunked_path_length=128, discount=1.,
-                     animated=False, speedup=1):
+                  animated=False, speedup=1):
     observations = []
     actions = []
     rewards = []
@@ -163,20 +160,20 @@ def chunk_rollout(env, agent, max_path_length=np.inf, chunked_path_length=128, d
         o = next_o
 
     chunked_observations = [observations[i:i + chunked_path_length]
-                             for i in range(0, len(observations), chunked_path_length)]
+                            for i in range(0, len(observations), chunked_path_length)]
     chunked_actions = [actions[i:i + chunked_path_length]
-                        for i in range(0, len(actions), chunked_path_length)]
+                       for i in range(0, len(actions), chunked_path_length)]
     chunked_rewards = [rewards[i:i + chunked_path_length]
-                        for i in range(0, len(rewards), chunked_path_length)]
+                       for i in range(0, len(rewards), chunked_path_length)]
     chunked_agent_infos = [agent_infos[i:i + chunked_path_length]
-                            for i in range(0, len(agent_infos), chunked_path_length)]
+                           for i in range(0, len(agent_infos), chunked_path_length)]
     chunked_env_infos = [env_infos[i:i + chunked_path_length]
-                          for i in range(0, len(env_infos), chunked_path_length)]
+                         for i in range(0, len(env_infos), chunked_path_length)]
 
     trajs = [dict(observations=tensor_utils.stack_tensor_list(chunked_observations[i]),
                   actions=tensor_utils.stack_tensor_list(chunked_actions[i]),
                   rewards=tensor_utils.stack_tensor_list(chunked_rewards[i]),
                   agent_infos=tensor_utils.stack_tensor_dict_list(chunked_agent_infos[i]),
                   env_infos=tensor_utils.stack_tensor_dict_list(chunked_env_infos[i]),)
-             for i in range(len(chunked_actions))] 
+             for i in range(len(chunked_actions))]
     return trajs
