@@ -58,24 +58,31 @@ class NPO(BatchPolopt):
         kl = dist.kl_sym(old_dist_info_vars, dist_info_vars)
         lr = dist.likelihood_ratio_sym(action_var, old_dist_info_vars, dist_info_vars)
         if is_recurrent:
-            mean_kl = tf.reduce_sum(kl * valid_var) / tf.reduce_sum(valid_var)
-            surr_loss = -tf.reduce_sum(lr * advantage_var * valid_var) / tf.reduce_sum(valid_var)
+            self.mean_kl = tf.reduce_sum(kl * valid_var) / tf.reduce_sum(valid_var)
+            self.surr_loss = -tf.reduce_sum(lr * advantage_var *
+                                            valid_var) / tf.reduce_sum(valid_var)
         else:
-            mean_kl = tf.reduce_mean(kl)
-            surr_loss = -tf.reduce_mean(lr * advantage_var)
+            self.mean_kl = tf.reduce_mean(kl)
+            self.surr_loss = -tf.reduce_mean(lr * advantage_var)
 
-        input_list = [
+        self.input_list = [
             obs_var,
             action_var,
             advantage_var,
         ] + state_info_vars_list + old_dist_info_vars_list
         if is_recurrent:
-            input_list.append(valid_var)
+            self.input_list.append(valid_var)
 
-        self.optimizer.update_opt(loss=surr_loss, target=self.policy,
-                                  leq_constraint=(mean_kl, self.step_size), inputs=input_list,
-                                  constraint_name="mean_kl")
+        self.optimizer.update_opt(loss=self.surr_loss, target=self.policy,
+                                  leq_constraint=(self.mean_kl, self.step_size),
+                                  inputs=self.input_list, constraint_name="mean_kl")
         return dict()
+
+    def update_step_size(self, value):
+        self.step_size = value
+        self.optimizer.update_opt(loss=self.surr_loss, target=self.policy,
+                                  leq_constraint=(self.mean_kl, self.step_size),
+                                  inputs=self.input_list, constraint_name="mean_kl")
 
     @overrides
     def optimize_policy(self, itr, samples_data):

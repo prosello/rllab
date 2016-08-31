@@ -22,7 +22,9 @@ class GaussianLSTMPolicy(StochasticPolicy, LayersPowered, Serializable):
                  hidden_nonlinearity=tf.tanh,
                  learn_std=True,
                  init_std=1.0,
-                 output_nonlinearity=None,):
+                 output_nonlinearity=None,
+                 min_std=1e-6,
+                 std_parametrization='exp',):
         """
         :param env_spec: A spec for the env.
         :param hidden_dim: dimension of hidden layer
@@ -108,6 +110,11 @@ class GaussianLSTMPolicy(StochasticPolicy, LayersPowered, Serializable):
             if feature_network is not None:
                 out_layers.append(feature_network.output_layer)
 
+            if std_parametrization == 'exp':
+                min_std_param = np.log(min_std)
+
+            self.min_std_param = min_std_param
+
             LayersPowered.__init__(self, out_layers)
 
     @overrides
@@ -128,6 +135,9 @@ class GaussianLSTMPolicy(StochasticPolicy, LayersPowered, Serializable):
             means, log_stds = L.get_output([self.mean_network.output_layer, self.l_log_std],
                                            {self.l_input: all_input_var,
                                             self.feature_network.input_layer: flat_input_var})
+        if self.min_std_param is not None:
+            log_stds = tf.maximum(log_stds, self.min_std_param)
+
         return dict(mean=means, log_std=log_stds)
 
     @property
