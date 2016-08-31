@@ -38,7 +38,7 @@ class TfEnv(ProxyEnv):
         return EnvSpec(observation_space=self.observation_space,
                        action_space=self.action_space,)
 
-    @cached_property
+    @property
     def agents(self):
         if hasattr(self.wrapped_env, 'agents'):
             return self.wrapped_env.agents
