@@ -65,6 +65,8 @@ def decrollout(env, agent, max_path_length=np.inf, animated=False, speedup=1):
         path_length += 1
         if d:
             break
+        if animated:
+            env.render()
         olist = next_olist
         if animated:
             env.render()
