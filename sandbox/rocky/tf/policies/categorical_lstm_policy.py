@@ -149,7 +149,7 @@ class CategoricalLSTMPolicy(StochasticPolicy, LayersPowered, Serializable):
 
     @property
     def vectorized(self):
-        return True
+        return False
 
     def reset(self, dones=None):
         if dones is None:

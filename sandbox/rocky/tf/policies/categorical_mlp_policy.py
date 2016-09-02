@@ -57,7 +57,7 @@ class CategoricalMLPPolicy(StochasticPolicy, LayersPowered, Serializable):
 
     @property
     def vectorized(self):
-        return True
+        return False
 
     @overrides
     def dist_info_sym(self, obs_var, state_info_vars=None):
