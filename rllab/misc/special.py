@@ -18,6 +18,13 @@ def weighted_sample(weights, objects):
     idx = sum(cs < np.random.rand())
     return objects[idx]
 
+def weighted_sample_n(weights, objects):
+    n = len(weights)
+    samples = np.zeros(n, dtype=np.int32)
+    for i in xrange(n):
+        samples[i] = weighted_sample(weights[i], objects)
+    return samples
+
 
 # compute softmax for each row
 def softmax(x):
