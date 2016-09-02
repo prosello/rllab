@@ -72,12 +72,15 @@ class MLP(LayersPowered, Serializable):
         return self._output
 
 
-class ConvNetwork(object):
+class ConvNetwork(LayersPowered, Serializable):
     def __init__(self, name, input_shape, output_dim, hidden_sizes,
                  conv_filters, conv_filter_sizes, conv_strides, conv_pads, hidden_nonlinearity, output_nonlinearity,
                  hidden_W_init=L.xavier_init, hidden_b_init=tf.zeros_initializer,
                  output_W_init=L.xavier_init, output_b_init=tf.zeros_initializer,
                  input_var=None, input_layer=None):
+
+        Serializable.quick_init(self, locals())
+
         with tf.variable_scope(name):
             if input_layer is not None:
                 l_in = input_layer
@@ -130,6 +133,8 @@ class ConvNetwork(object):
             self._l_out = l_out
             self._input_var = l_in.input_var
 
+            LayersPowered.__init__(self, l_out)
+
     @property
     def input_layer(self):
         return self._l_in
@@ -143,9 +148,12 @@ class ConvNetwork(object):
         return self._l_in.input_var
 
 
-class GRUNetwork(object):
+class GRUNetwork(LayersPowered, Serializable):
     def __init__(self, name, input_shape, output_dim, hidden_dim, hidden_nonlinearity=tf.nn.relu,
                  output_nonlinearity=None, input_var=None, input_layer=None):
+
+        Serializable.quick_init(self, locals())
+
         with tf.variable_scope(name):
             if input_layer is None:
                 l_in = L.InputLayer(shape=(None, None) + input_shape, input_var=input_var, name="input")
@@ -193,6 +201,8 @@ class GRUNetwork(object):
             self._l_step_hidden = l_step_hidden
             self._l_step_output = l_step_output
 
+            LayersPowered.__init__(self, l_out)
+
     @property
     def input_layer(self):
         return self._l_in
@@ -226,9 +236,12 @@ class GRUNetwork(object):
         return self._hid_init_param
 
 
-class LSTMNetwork(object):
+class LSTMNetwork(LayersPowered, Serializable):
     def __init__(self, name, input_shape, output_dim, hidden_dim, hidden_nonlinearity=tf.nn.relu,
                  output_nonlinearity=None, input_var=None, input_layer=None, forget_bias=1.0, use_peepholes=False):
+
+        Serializable.quick_init(self, locals())
+
         with tf.variable_scope(name):
             if input_layer is None:
                 l_in = L.InputLayer(shape=(None, None) + input_shape, input_var=input_var, name="input")
@@ -283,6 +296,8 @@ class LSTMNetwork(object):
             self._l_step_hidden = l_step_hidden
             self._l_step_cell = l_step_cell
             self._l_step_output = l_step_output
+
+            LayersPowered.__init__(self, l_out)
 
     @property
     def input_layer(self):
