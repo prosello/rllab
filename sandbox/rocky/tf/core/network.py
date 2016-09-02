@@ -148,11 +148,9 @@ class ConvNetwork(LayersPowered, Serializable):
         return self._l_in.input_var
 
 
-class GRUNetwork(LayersPowered, Serializable):
+class GRUNetwork(object):
     def __init__(self, name, input_shape, output_dim, hidden_dim, hidden_nonlinearity=tf.nn.relu,
                  output_nonlinearity=None, input_var=None, input_layer=None):
-
-        Serializable.quick_init(self, locals())
 
         with tf.variable_scope(name):
             if input_layer is None:
@@ -201,8 +199,6 @@ class GRUNetwork(LayersPowered, Serializable):
             self._l_step_hidden = l_step_hidden
             self._l_step_output = l_step_output
 
-            LayersPowered.__init__(self, l_out)
-
     @property
     def input_layer(self):
         return self._l_in
@@ -236,11 +232,9 @@ class GRUNetwork(LayersPowered, Serializable):
         return self._hid_init_param
 
 
-class LSTMNetwork(LayersPowered, Serializable):
+class LSTMNetwork(object):
     def __init__(self, name, input_shape, output_dim, hidden_dim, hidden_nonlinearity=tf.nn.relu,
                  output_nonlinearity=None, input_var=None, input_layer=None, forget_bias=1.0, use_peepholes=False):
-
-        Serializable.quick_init(self, locals())
 
         with tf.variable_scope(name):
             if input_layer is None:
@@ -296,8 +290,6 @@ class LSTMNetwork(LayersPowered, Serializable):
             self._l_step_hidden = l_step_hidden
             self._l_step_cell = l_step_cell
             self._l_step_output = l_step_output
-
-            LayersPowered.__init__(self, l_out)
 
     @property
     def input_layer(self):
