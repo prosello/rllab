@@ -109,7 +109,7 @@ class DDPG(RLAlgorithm):
             soft_target=True,
             soft_target_tau=0.001,
             n_updates_per_sample=1,
-            scale_reward=1.0,
+            scale_reward=0.1,
             include_horizon_terminal_transitions=False,
             plot=False,
             pause_for_plot=False,
@@ -423,6 +423,8 @@ class DDPG(RLAlgorithm):
 
         returns = [sum(path["rewards"]) for path in paths]
 
+        traj_lengths = [len(path["rewards"]) for path in paths]
+
         all_qs = np.concatenate(self.q_averages)
         all_ys = np.concatenate(self.y_averages)
 
@@ -448,6 +450,10 @@ class DDPG(RLAlgorithm):
                               np.max(returns))
         logger.record_tabular('MinReturn',
                               np.min(returns))
+        logger.record_tabular('NTraj',
+                              len(traj_lengths))
+        logger.record_tabular('AveTrajLen',
+                              np.mean(traj_lengths))
         if len(self.es_path_returns) > 0:
             logger.record_tabular('AverageEsReturn',
                                   np.mean(self.es_path_returns))
