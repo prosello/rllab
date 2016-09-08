@@ -112,7 +112,8 @@ class DDPG(RLAlgorithm):
             scale_reward=1.0,
             include_horizon_terminal_transitions=False,
             plot=False,
-            pause_for_plot=False):
+            pause_for_plot=False,
+            mode='centralized'):
         """
         :param env: Environment
         :param policy: Policy
@@ -185,6 +186,8 @@ class DDPG(RLAlgorithm):
 
         self.opt_info = None
 
+        self.mode = mode
+
     def start_worker(self):
         parallel_sampler.populate_task(self.env, self.policy)
         if self.plot:
@@ -203,7 +206,7 @@ class DDPG(RLAlgorithm):
         self.init_opt()
         itr = 0
         path_length = 0
-        path_return = 0
+        path_return = 0 if self.mode == 'centralized' else np.zeros(len(self.env.agents))
         terminal = False
         observation = self.env.reset()
 
@@ -224,29 +227,60 @@ class DDPG(RLAlgorithm):
                     self.es_path_returns.append(path_return)
                     path_length = 0
                     path_return = 0
-                action = self.es.get_action(itr, observation, policy=sample_policy)  # qf=qf)
-
-                next_observation, reward, terminal, _ = self.env.step(action)
-                path_length += 1
-                path_return += reward
+                if self.mode == 'centralized':
+                    action = self.es.get_action(itr, observation, policy=sample_policy)  # qf=qf)
+                    next_observation, reward, terminal, _ = self.env.step(action)
+                    path_length += 1
+                    path_return += reward
+                elif self.mode == 'decentralized':
+                    action = []
+                    for agent_obs in observation:
+                        action.append(self.es.get_action(itr, agent_obs, policy=sample_policy))
+                    next_observation, reward, terminal, _ = self.env.step(action)
+                    path_length += 1
+                    path_return += np.array(reward)
+                else:
+                    raise NotImplementedError()
 
                 if not terminal and path_length >= self.max_path_length:
                     terminal = True
                     # only include the terminal transition in this case if the flag was set
                     if self.include_horizon_terminal_transitions:
+                        if self.mode == 'centralized':
+                            pool.add_sample(
+                                self.env.observation_space.flatten(observation),
+                                self.env.action_space.flatten(action),
+                                reward * self.scale_reward,
+                                terminal
+                            )
+                        elif self.mode == 'decentralized':
+                            for o, a, r in zip(observation, action, reward):
+                                pool.add_sample(
+                                    self.env.observation_space.flatten(o),
+                                    self.env.action_space.flatten(a),
+                                    r * self.scale_reward,
+                                    terminal
+                                )
+                        else:
+                            raise NotImplementedError()
+                else:
+                    if self.mode == 'centralized':
                         pool.add_sample(
                             self.env.observation_space.flatten(observation),
                             self.env.action_space.flatten(action),
                             reward * self.scale_reward,
                             terminal
                         )
-                else:
-                    pool.add_sample(
-                        self.env.observation_space.flatten(observation),
-                        self.env.action_space.flatten(action),
-                        reward * self.scale_reward,
-                        terminal
-                    )
+                    elif self.mode == 'decentralized':
+                        for o, a, r in zip(observation, action, reward):
+                            pool.add_sample(
+                                self.env.observation_space.flatten(o),
+                                self.env.action_space.flatten(a),
+                                r * self.scale_reward,
+                                terminal
+                            )
+                    else:
+                        raise NotImplementedError()
                 observation = next_observation
 
                 if pool.size >= self.min_pool_size:
@@ -257,6 +291,12 @@ class DDPG(RLAlgorithm):
                     sample_policy.set_param_values(self.policy.get_param_values())
 
                 itr += 1
+
+            #logger.record_tabular('Iteration', itr)
+            #logger.record_tabular('AverageReturn', np.mean(self.es_path_returns[-10:len(self.es_path_returns)]))
+            #logger.record_tabular('PoolSize', pool.size)
+            #import IPython
+            #IPython.embed()
 
             logger.log("Training finished")
             if pool.size >= self.min_pool_size:
@@ -270,7 +310,8 @@ class DDPG(RLAlgorithm):
                 if self.pause_for_plot:
                     raw_input("Plotting evaluation run: Press Enter to "
                               "continue...")
-        self.env.terminate()
+        # don't need to terminate multiagent env
+        #self.env.terminate()
         self.policy.terminate()
 
     def init_opt(self):
@@ -379,6 +420,7 @@ class DDPG(RLAlgorithm):
             policy_params=self.policy.get_param_values(),
             max_samples=self.eval_samples,
             max_path_length=self.max_path_length,
+            mode=self.mode
         )
 
         average_discounted_return = np.mean(

@@ -55,6 +55,9 @@ def decrollout(env, agent, max_path_length=np.inf, animated=False, speedup=1):
         for i, o in enumerate(olist):
             observations[i].append(env.observation_space.flatten(o))
             actions[i].append(env.action_space.flatten(alist[i]))
+            if agent_info_list is None:
+                agent_infos[i].append({})
+                continue
             agent_infos[i].append(agent_info_list[i])
         next_olist, rlist, d, env_info = env.step(np.asarray(alist))
         for i, r in enumerate(rlist):
