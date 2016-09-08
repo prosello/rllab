@@ -45,7 +45,12 @@ def main():
     fname2log = {}
     for fname in args.logfiles:
         df = pd.read_csv(fname)
-        df.set_index('Iteration', inplace=True)
+        if 'Iteration' in df.keys():
+            df.set_index('Iteration', inplace=True)
+        elif 'Epoch' in df.keys():
+            df.set_index('Epoch', inplace=True)
+        else:
+            raise NotImplementedError()
         if not args.fields == 'all':
             df = df.loc[:, args.fields.split(',')]
         fname2log[fname] = df
