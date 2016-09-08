@@ -292,12 +292,6 @@ class DDPG(RLAlgorithm):
 
                 itr += 1
 
-            #logger.record_tabular('Iteration', itr)
-            #logger.record_tabular('AverageReturn', np.mean(self.es_path_returns[-10:len(self.es_path_returns)]))
-            #logger.record_tabular('PoolSize', pool.size)
-            #import IPython
-            #IPython.embed()
-
             logger.log("Training finished")
             if pool.size >= self.min_pool_size:
                 self.evaluate(epoch, pool)
