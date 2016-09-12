@@ -80,6 +80,47 @@ def decrollout(env, agent, max_path_length=np.inf, animated=False, speedup=1):
     return trajs
 
 
+def evaluate_policy(env, agent, max_path_length, n_paths, mode, disc):
+    from rllab.misc import special
+    if mode == 'centralized':
+        ret = []
+        discret = []
+        envinfo = []
+        for n_path in range(n_paths):
+            path = rollout(env, agent, max_path_length)
+            pathret = path['rewards'].sum()
+            pathdiscret = special.discount_cumsum(path['rewards'], disc)
+            info = path['env_infos']
+            ret.append(pathret)
+            discret.append(pathdiscret)
+            envinfo.append(info)
+
+        dictinfo = {k: np.mean(v) for k, v in tensor_utils.stack_tensor_dict_list(envinfo).items()}
+        return dict(ret=np.mean(ret), discret=np.mean(discret), **dictinfo)
+
+    elif mode == 'decentralized':
+        agent2paths = {}
+        for agid in range(len(env.agents)):
+            agent2paths[agid] = []
+
+        for n_path in range(n_paths):
+            paths = decrollout(env, agent, max_path_length)
+            for agid, agpath in enumerate(paths):
+                agent2paths[agid].append(agpath)
+
+        rets, discrets, infos = [], [], []
+        for agid, paths in agent2paths.items():
+            rets.append(np.mean([path['rewards'].sum() for path in paths]))
+            discrets.append(
+                np.mean([special.discount_cumsum(path['rewards'], disc) for path in paths]))
+            infos.append(
+                {k: np.mean(v)
+                 for k, v in tensor_utils.stack_tensor_dict_list([path['env_infos']
+                                                                  for path in paths]).items()})
+        dictinfos = tensor_utils.stack_tensor_dict_list(infos)
+        return dict(ret=rets, discret=discrets, **dictinfos)
+
+
 def chunk_decrollout(env, agent, max_path_length=np.inf, chunked_path_length=32, discount=1.,
                      animated=False, speedup=1):
     n_agents = len(env.agents)
