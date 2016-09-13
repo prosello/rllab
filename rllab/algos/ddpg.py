@@ -81,6 +81,69 @@ class SimpleReplayPool(object):
         return self._size
 
 
+class MAReplayPool(object):
+    def __init__(
+            self, max_pool_size, observation_dim, action_dim):
+        self._observation_dim = observation_dim
+        self._action_dim = action_dim
+        self._max_pool_size = max_pool_size
+        self._observations = np.zeros(
+            (max_pool_size, observation_dim),
+        )
+        self._next_observations = np.zeros(
+            (max_pool_size, observation_dim),
+        )
+        self._actions = np.zeros(
+            (max_pool_size, action_dim),
+        )
+        self._rewards = np.zeros(max_pool_size)
+        self._terminals = np.zeros(max_pool_size, dtype='uint8')
+        self._bottom = 0
+        self._top = 0
+        self._size = 0
+
+    def add_sample(self, observation, action, reward, next_observation, terminal):
+        self._observations[self._top] = observation
+        self._next_observations[self._top] = next_observation
+        self._actions[self._top] = action
+        self._rewards[self._top] = reward
+        self._terminals[self._top] = terminal
+        self._top = (self._top + 1) % self._max_pool_size
+        if self._size >= self._max_pool_size:
+            self._bottom = (self._bottom + 1) % self._max_pool_size
+        else:
+            self._size += 1
+
+    def random_batch(self, batch_size):
+        assert self._size > batch_size
+        indices = np.zeros(batch_size, dtype='uint64')
+        transition_indices = np.zeros(batch_size, dtype='uint64')
+        count = 0
+        while count < batch_size:
+            index = np.random.randint(self._bottom, self._bottom + self._size) % self._max_pool_size
+            # make sure that the transition is valid: if we are at the end of the pool, we need to discard
+            # this sample
+            if index == self._size - 1 and self._size <= self._max_pool_size:
+                continue
+            # if self._terminals[index]:
+            #     continue
+            transition_index = (index + 1) % self._max_pool_size
+            indices[count] = index
+            transition_indices[count] = transition_index
+            count += 1
+        return dict(
+            observations=self._observations[indices],
+            actions=self._actions[indices],
+            rewards=self._rewards[indices],
+            terminals=self._terminals[indices],
+            next_observations=self._observations[indices]
+        )
+
+    @property
+    def size(self):
+        return self._size
+
+
 class DDPG(RLAlgorithm):
     """
     Deep Deterministic Policy Gradient.
@@ -196,7 +259,7 @@ class DDPG(RLAlgorithm):
     @overrides
     def train(self):
         # This seems like a rather sequential method
-        pool = SimpleReplayPool(
+        pool = MAReplayPool(
             max_pool_size=self.replay_pool_size,
             observation_dim=self.env.observation_space.flat_dim,
             action_dim=self.env.action_space.flat_dim,
@@ -251,14 +314,16 @@ class DDPG(RLAlgorithm):
                                 self.env.observation_space.flatten(observation),
                                 self.env.action_space.flatten(action),
                                 reward * self.scale_reward,
+                                self.env.observation_space.flatten(next_observation),
                                 terminal
                             )
                         elif self.mode == 'decentralized':
-                            for o, a, r in zip(observation, action, reward):
+                            for o, a, r, op in zip(observation, action, reward, next_observation):
                                 pool.add_sample(
                                     self.env.observation_space.flatten(o),
                                     self.env.action_space.flatten(a),
                                     r * self.scale_reward,
+                                    self.env.observation_space.flatten(op),
                                     terminal
                                 )
                         else:
@@ -269,14 +334,16 @@ class DDPG(RLAlgorithm):
                             self.env.observation_space.flatten(observation),
                             self.env.action_space.flatten(action),
                             reward * self.scale_reward,
+                            self.env.observation_space.flatten(next_observation),
                             terminal
                         )
                     elif self.mode == 'decentralized':
-                        for o, a, r in zip(observation, action, reward):
+                        for o, a, r, op in zip(observation, action, reward, next_observation):
                             pool.add_sample(
                                 self.env.observation_space.flatten(o),
                                 self.env.action_space.flatten(a),
                                 r * self.scale_reward,
+                                self.env.observation_space.flatten(op),
                                 terminal
                             )
                     else:
