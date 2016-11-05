@@ -40,13 +40,13 @@ class BatchMASampler(BaseSampler):
             cur_env_params = self.algo.env.get_param_values()
         else:
             cur_env_params = None
-            paths = ma_sampler.sample_paths(
-                policy_params=cur_policy_params,
-                env_params=cur_env_params,
-                max_samples=self.algo.batch_size,
-                max_path_length=self.algo.max_path_length,
-                ma_mode=self.algo.ma_mode,
-                scope=self.algo.scope,)
+        paths = ma_sampler.sample_paths(
+            policy_params=cur_policy_params,
+            env_params=cur_env_params,
+            max_samples=self.algo.batch_size,
+            max_path_length=self.algo.max_path_length,
+            ma_mode=self.algo.ma_mode,
+            scope=self.algo.scope,)
         if self.algo.whole_paths:
             return paths
         else:

@@ -2,6 +2,7 @@ from .base import Env
 
 
 class ProxyEnv(Env):
+
     def __init__(self, wrapped_env):
         self._wrapped_env = wrapped_env
 
@@ -37,7 +38,8 @@ class ProxyEnv(Env):
         self._wrapped_env.terminate()
 
     def get_param_values(self):
-        return self._wrapped_env.get_param_values()
+        if hasattr(self._wrapped_env, 'get_param_values'):
+            return self._wrapped_env.get_param_values()
 
-    def set_param_values(self,params):
+    def set_param_values(self, params):
         self._wrapped_env.set_param_values(params)

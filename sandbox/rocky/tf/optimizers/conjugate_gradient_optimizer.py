@@ -272,8 +272,8 @@ class ConjugateGradientOptimizer(Serializable):
         if np.isnan(initial_step_size):
             initial_step_size = 1.
         flat_descent_step = initial_step_size * descent_direction
-        logger.log("initial step_size: %f" % initial_step_size)
-        logger.log("flat_descent_step: %f" % flat_descent_step)
+        logger.log("initial step_size: {}".format(initial_step_size))
+
         logger.log("descent direction computed")
 
         n_iter = 0

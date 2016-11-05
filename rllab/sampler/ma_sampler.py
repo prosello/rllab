@@ -200,9 +200,9 @@ def _worker_set_policy_params(G, params, ma_mode='centralized', scope=None):
     G = _get_scoped_G(G, scope)
     if ma_mode == 'concurrent':
         for pid, policy in enumerate(G.policies):
-            policy.set_params_values(params[pid])
+            policy.set_param_values(params[pid])
     else:
-        G.policy.set_params_values(params)
+        G.policy.set_param_values(params)
 
 
 def _worker_collect_path_one_env(G, max_path_length, ma_mode='centralized', scope=None):

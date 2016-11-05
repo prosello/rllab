@@ -119,8 +119,10 @@ class BatchMAPolopt(RLAlgorithm):
         self.shutdown_worker()
 
     def log_diagnostics(self, paths):
-        self.env.log_diagnostics(paths)
-        if hasattr(self, 'policies'):
+        if self.ma_mode == 'decentralized':
+            import itertools
+            self.env.log_diagnostics(list(itertools.chain.from_iterable(paths)))
+        elif self.ma_mode == 'concurrent':
             for policy, ps in zip(self.policies, paths):
                 policy.log_diagnostics(ps)
         else:
