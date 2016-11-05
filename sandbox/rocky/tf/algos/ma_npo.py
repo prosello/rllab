@@ -116,9 +116,10 @@ class MANPO(BatchMAPolopt):
     @overrides
     def optimize_policy(self, itr, samples_data):
         if self.ma_mode == 'concurrent':
+            assert len(self.optimizers) > 0, 'Optimizers?'
             for idx, policy in enumerate(self.policies):
-                with logger.prefix('agent #%d | ' % idx):
-                    self.optimize_policy_helper(samples_data[idx], policy, self.optimizers[idx])
+                logger.log('| agent #%d | ' % idx)
+                self.optimize_policy_helper(samples_data[idx], policy, self.optimizers[idx])
         else:
             self.optimize_policy_helper(samples_data, self.policy, self.optimizer)
         return dict()

@@ -123,11 +123,12 @@ class BatchMAPolopt(RLAlgorithm):
             import itertools
             self.env.log_diagnostics(list(itertools.chain.from_iterable(paths)))
         elif self.ma_mode == 'concurrent':
-            for policy, ps in zip(self.policies, paths):
+            for policy, baseline, ps in zip(self.policies, self.baselines, paths):
                 policy.log_diagnostics(ps)
+                baseline.log_diagnostics(ps)
         else:
             self.policy.log_diagnostics(paths)
-        self.baseline.log_diagnostics(paths)
+            self.baseline.log_diagnostics(paths)
 
     def init_opt(self):
         """

@@ -117,7 +117,7 @@ def conc_rollout(env, agents, max_path_length=np.inf, animated=False, speedup=1)
         alist = []
         # For each agent
         for i, o in enumerate(olist):
-            a, ainfo = agents[i].get_actions(o)
+            a, ainfo = agents[i].get_action(o)
             alist.append(a)
             observations[i].append(env.observation_space.flatten(o))
             actions[i].append(env.action_space.flatten(a))
@@ -150,7 +150,7 @@ def conc_rollout(env, agents, max_path_length=np.inf, animated=False, speedup=1)
     ]
 
 
-def _worker_populate_task(G, env, policy, ma_mode='centralized', scope=None):
+def _worker_populate_task(G, env, policy, ma_mode, scope=None):
     # TODO: better term for both policy/policies
     G = _get_scoped_G(G, scope)
     G.env = pickle.loads(env)
@@ -175,11 +175,12 @@ def _worker_terminate_task(G, scope=None):
         G.policies = None
 
 
-def populate_task(env, policy, ma_mode='centralized', scope=None):
+def populate_task(env, policy, ma_mode, scope=None):
     logger.log("Populating workers...")
+    logger.log("ma_mode={}".format(ma_mode))
     if singleton_pool.n_parallel > 1:
         singleton_pool.run_each(_worker_populate_task,
-                                [(pickle.dumps(env), pickle.dumps(policy), scope)] *
+                                [(pickle.dumps(env), pickle.dumps(policy), ma_mode, scope)] *
                                 singleton_pool.n_parallel)
     else:
         # avoid unnecessary copying
@@ -196,7 +197,7 @@ def terminate_task(scope=None):
     singleton_pool.run_each(_worker_terminate_task, [(scope,)] * singleton_pool.n_parallel)
 
 
-def _worker_set_policy_params(G, params, ma_mode='centralized', scope=None):
+def _worker_set_policy_params(G, params, ma_mode, scope=None):
     G = _get_scoped_G(G, scope)
     if ma_mode == 'concurrent':
         for pid, policy in enumerate(G.policies):
@@ -205,7 +206,7 @@ def _worker_set_policy_params(G, params, ma_mode='centralized', scope=None):
         G.policy.set_param_values(params)
 
 
-def _worker_collect_path_one_env(G, max_path_length, ma_mode='centralized', scope=None):
+def _worker_collect_path_one_env(G, max_path_length, ma_mode, scope=None):
     G = _get_scoped_G(G, scope)
     if ma_mode == 'centralized':
         path = cent_rollout(G.env, G.policy, max_path_length)
@@ -222,12 +223,12 @@ def _worker_collect_path_one_env(G, max_path_length, ma_mode='centralized', scop
         raise NotImplementedError("incorrect rollout type")
 
 
-def sample_paths(policy_params, max_samples, max_path_length=np.inf, env_params=None,
-                 ma_mode='centralized', scope=None):
+def sample_paths(policy_params, max_samples, ma_mode, max_path_length=np.inf, env_params=None,
+                 scope=None):
     if ma_mode == 'concurrent':
         assert isinstance(policy_params, list)
     singleton_pool.run_each(_worker_set_policy_params,
-                            [(policy_params, scope)] * singleton_pool.n_parallel)
+                            [(policy_params, ma_mode, scope)] * singleton_pool.n_parallel)
     if env_params is not None:
         singleton_pool.run_each(_worker_set_env_params,
                                 [(env_params, scope)] * singleton_pool.n_parallel)

@@ -25,9 +25,9 @@ class BatchMASampler(BaseSampler):
         if singleton_pool.n_parallel > 1:
             singleton_pool.run_each(worker_init_tf)
         if hasattr(self.algo, 'policies'):
-            parallel_sampler.populate_task(self.algo.env, self.algo.policies)
+            ma_sampler.populate_task(self.algo.env, self.algo.policies, self.algo.ma_mode)
         else:
-            parallel_sampler.populate_task(self.algo.env, self.algo.policy)
+            ma_sampler.populate_task(self.algo.env, self.algo.policy, self.algo.ma_mode)
         if singleton_pool.n_parallel > 1:
             singleton_pool.run_each(worker_init_tf_vars)
 
@@ -35,7 +35,10 @@ class BatchMASampler(BaseSampler):
         ma_sampler.terminate_task(scope=self.algo.scope)
 
     def obtain_samples(self, itr):
-        cur_policy_params = self.algo.policy.get_param_values()
+        if self.algo.ma_mode == 'concurrent':
+            cur_policy_params = [policy.get_param_values() for policy in self.algo.policies]
+        else:
+            cur_policy_params = self.algo.policy.get_param_values()
         if hasattr(self.algo.env, "get_param_values"):
             cur_env_params = self.algo.env.get_param_values()
         else:
@@ -160,8 +163,7 @@ class BatchMASampler(BaseSampler):
 
                     undiscounted_returns = [sum(path["rewards"]) for path in ps]
 
-                    ent = np.sum(self.algo.policy.distribution.entropy(agent_infos) *
-                                 valids) / np.sum(valids)
+                    ent = np.sum(policy.distribution.entropy(agent_infos) * valids) / np.sum(valids)
 
                     samples_data = dict(
                         observations=obs,
@@ -193,3 +195,5 @@ class BatchMASampler(BaseSampler):
                 logger.record_tabular('MinReturn', np.min(undiscounted_returns))
 
                 processed_samples.append(samples_data)
+
+            return processed_samples
