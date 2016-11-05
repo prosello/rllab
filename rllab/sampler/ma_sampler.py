@@ -1,13 +1,15 @@
-from rllab.sampler.stateful_pool import singleton_pool, SharedGlobal
-from rllab.sampler.parallel_sampler import _get_scoped_G, _worker_set_env_params
-from rllab.misc import ext
-from rllab.misc import logger
-from rllab.misc import tensor_utils
 import pickle
+import time
+
 import numpy as np
+
+from rllab.misc import logger, tensor_utils
+from rllab.sampler.parallel_sampler import (_get_scoped_G, _worker_set_env_params)
+from rllab.sampler.stateful_pool import singleton_pool
 
 
 def cent_rollout(env, agent, max_path_length=np.inf, animated=False, speedup=1):
+    """Centralized rollout"""
     observations = []
     actions = []
     rewards = []
@@ -48,6 +50,7 @@ def cent_rollout(env, agent, max_path_length=np.inf, animated=False, speedup=1):
 
 
 def dec_rollout(env, agents, max_path_length=np.inf, animated=False, speedup=1):
+    """Decentralized rollout"""
     n_agents = len(env.agents)
     observations = [[] for _ in range(n_agents)]
     actions = [[] for _ in range(n_agents)]
@@ -97,6 +100,7 @@ def dec_rollout(env, agents, max_path_length=np.inf, animated=False, speedup=1):
 
 
 def conc_rollout(env, agents, max_path_length=np.inf, animated=False, speedup=1):
+    """Concurrent rollout"""
     n_agents = len(env.agents)
     observations = [[] for _ in range(n_agents)]
     actions = [[] for _ in range(n_agents)]
