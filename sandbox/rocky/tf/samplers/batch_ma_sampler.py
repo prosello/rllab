@@ -110,7 +110,7 @@ class BatchMASampler(BaseSampler):
 
                     undiscounted_returns = [sum(path["rewards"]) for path in ps]
 
-                    ent = np.mean(self.algo.policy.distribution.entropy(agent_infos))
+                    ent = np.mean(policy.distribution.entropy(agent_infos))
 
                     samples_data = dict(
                         observations=observations,
