@@ -58,6 +58,7 @@ def dec_rollout(env, agents, max_path_length=np.inf, animated=False, speedup=1):
     agent_infos = [[] for _ in range(n_agents)]
     env_infos = [[] for _ in range(n_agents)]
     olist = env.reset()
+    assert len(olist) == n_agents, "{} != {}".format(len(olist), n_agents)
     agents.reset(dones=[True for _ in range(n_agents)])
     path_length = 0
     if animated:
@@ -173,6 +174,9 @@ def _worker_terminate_task(G, scope=None):
         for policy in G.policies:
             policy.terminate()
         G.policies = None
+    if getattr(G, "sess", None):
+        G.sess.close()
+        G.sess = None
 
 
 def populate_task(env, policy, ma_mode, scope=None):
