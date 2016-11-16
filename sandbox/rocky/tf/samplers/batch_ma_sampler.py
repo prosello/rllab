@@ -25,11 +25,9 @@ class BatchMASampler(BaseSampler):
         if singleton_pool.n_parallel > 1:
             singleton_pool.run_each(worker_init_tf)
         if hasattr(self.algo, 'policies'):
-            ma_sampler.populate_task(self.algo.env, self.algo.policies, self.algo.ma_mode,
-                                     self.algo.scope)
+            ma_sampler.populate_task(self.algo.env, self.algo.policies, self.algo.ma_mode)
         else:
-            ma_sampler.populate_task(self.algo.env, self.algo.policy, self.algo.ma_mode,
-                                     self.algo.scope)
+            ma_sampler.populate_task(self.algo.env, self.algo.policy, self.algo.ma_mode)
         if singleton_pool.n_parallel > 1:
             singleton_pool.run_each(worker_init_tf_vars)
 
