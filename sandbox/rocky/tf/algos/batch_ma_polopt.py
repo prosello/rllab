@@ -158,11 +158,11 @@ class BatchMAPolopt(RLAlgorithm):
                                     params["paths"] = [sd["paths"] for sd in samples_data]
                                 else:
                                     params["paths"] = samples_data["paths"]
-                                    logger.save_itr_params(itr, params)
-                                    logger.log("Saved")
-                                    logger.record_tabular('Time', time.time() - start_time)
-                                    logger.record_tabular('ItrTime', time.time() - itr_start_time)
-                                    logger.dump_tabular(with_prefix=False)
+                            logger.save_itr_params(itr, params)
+                            logger.log("Saved")
+                            logger.record_tabular('Time', time.time() - start_time)
+                            logger.record_tabular('ItrTime', time.time() - itr_start_time)
+                            logger.dump_tabular(with_prefix=False)
                             if self.plot:
                                 self.update_plot()
                                 if self.pause_for_plot:
