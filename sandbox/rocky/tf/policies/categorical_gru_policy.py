@@ -89,15 +89,9 @@ class CategoricalGRUPolicy(StochasticPolicy, LayersPowered, Serializable):
                 feature_var = L.get_output(l_flat_feature, {feature_network.input_layer: flat_input_var})
 
             self.f_step_prob = tensor_utils.compile_function(
-                [
-                    flat_input_var,
-                    prob_network.step_prev_hidden_layer.input_var
-                ],
-                L.get_output([
-                    prob_network.step_output_layer,
-                    prob_network.step_hidden_layer
-                ], {prob_network.step_input_layer: feature_var})
-            )
+                [flat_input_var, prob_network.step_prev_state_layer.input_var],
+                L.get_output([prob_network.step_output_layer, prob_network.step_hidden_layer],
+                             {prob_network.step_input_layer: feature_var}))
 
             self.input_dim = input_dim
             self.action_dim = action_dim
