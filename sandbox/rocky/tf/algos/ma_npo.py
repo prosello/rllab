@@ -84,7 +84,7 @@ class MANPO(BatchMAPolopt):
                 with tf.variable_scope('agent_%d' % idx):
                     optimizer = copy.deepcopy(self.optimizer)
                     self.opt_helper(policy, optimizer)
-                    self.optimizers.append(optimizer)
+                self.optimizers.append(optimizer)
         else:
             self.opt_helper(self.policy, self.optimizer)
         return dict()

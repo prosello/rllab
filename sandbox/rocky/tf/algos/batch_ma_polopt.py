@@ -171,7 +171,7 @@ class BatchMAPolopt(RLAlgorithm):
                     end_itr += self.n_itr
                     logger.log("Evaluating...")
                     evres = evaluate(self.env, self.policy, max_path_length=self.max_path_length,
-                                     n_paths=curriculum.n_trials, ma_mode=self.ma_mode,
+                                     n_paths=curriculum.eval_trials, ma_mode=self.ma_mode,
                                      disc=self.discount)
                     task_eval_reward[task] += np.mean(evres[curriculum.metric])  # TODO
                     task_counts[task] += 1
