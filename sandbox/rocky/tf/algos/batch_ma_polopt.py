@@ -130,7 +130,6 @@ class BatchMAPolopt(RLAlgorithm):
         task_counts = defaultdict(int)
         with tf.Session() as sess:
             sess.run(tf.initialize_all_variables())
-            self.start_worker()
             start_time = time.time()
             start_itr = self.start_itr
             end_itr = self.n_itr
@@ -139,6 +138,7 @@ class BatchMAPolopt(RLAlgorithm):
                     task_prob = np.random.dirichlet(task_dist)
                     task = np.random.choice(curriculum.tasks, p=task_prob)
                     self.env.set_param_values(task.prop)
+                    self.start_worker()
                     for itr in range(start_itr, end_itr):
                         itr_start_time = time.time()
                         with logger.prefix('curr: #%d itr #%d |' % (ctrial, itr)):
