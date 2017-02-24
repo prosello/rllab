@@ -2,12 +2,13 @@ from rllab.algos.base import RLAlgorithm
 from rllab.misc.overrides import overrides
 from rllab.misc import special
 from rllab.misc import ext
-from rllab.sampler import parallel_sampler
+#from rllab.sampler import parallel_sampler
+from rllab.sampler import ma_sampler
 from rllab.plotter import plotter
 from functools import partial
 import rllab.misc.logger as logger
 import theano.tensor as TT
-import pickle as pickle
+import pickle
 import numpy as np
 import pyprind
 import lasagne
@@ -81,6 +82,69 @@ class SimpleReplayPool(object):
         return self._size
 
 
+class MAReplayPool(object):
+    def __init__(
+            self, max_pool_size, observation_dim, action_dim):
+        self._observation_dim = observation_dim
+        self._action_dim = action_dim
+        self._max_pool_size = max_pool_size
+        self._observations = np.zeros(
+            (max_pool_size, observation_dim),
+        )
+        self._next_observations = np.zeros(
+            (max_pool_size, observation_dim),
+        )
+        self._actions = np.zeros(
+            (max_pool_size, action_dim),
+        )
+        self._rewards = np.zeros(max_pool_size)
+        self._terminals = np.zeros(max_pool_size, dtype='uint8')
+        self._bottom = 0
+        self._top = 0
+        self._size = 0
+
+    def add_sample(self, observation, action, reward, next_observation, terminal):
+        self._observations[self._top] = observation
+        self._next_observations[self._top] = next_observation
+        self._actions[self._top] = action
+        self._rewards[self._top] = reward
+        self._terminals[self._top] = terminal
+        self._top = (self._top + 1) % self._max_pool_size
+        if self._size >= self._max_pool_size:
+            self._bottom = (self._bottom + 1) % self._max_pool_size
+        else:
+            self._size += 1
+
+    def random_batch(self, batch_size):
+        assert self._size > batch_size
+        indices = np.zeros(batch_size, dtype='uint64')
+        transition_indices = np.zeros(batch_size, dtype='uint64')
+        count = 0
+        while count < batch_size:
+            index = np.random.randint(self._bottom, self._bottom + self._size) % self._max_pool_size
+            # make sure that the transition is valid: if we are at the end of the pool, we need to discard
+            # this sample
+            if index == self._size - 1 and self._size <= self._max_pool_size:
+                continue
+            # if self._terminals[index]:
+            #     continue
+            transition_index = (index + 1) % self._max_pool_size
+            indices[count] = index
+            transition_indices[count] = transition_index
+            count += 1
+        return dict(
+            observations=self._observations[indices],
+            actions=self._actions[indices],
+            rewards=self._rewards[indices],
+            terminals=self._terminals[indices],
+            next_observations=self._observations[indices]
+        )
+
+    @property
+    def size(self):
+        return self._size
+
+
 class DDPG(RLAlgorithm):
     """
     Deep Deterministic Policy Gradient.
@@ -109,10 +173,11 @@ class DDPG(RLAlgorithm):
             soft_target=True,
             soft_target_tau=0.001,
             n_updates_per_sample=1,
-            scale_reward=1.0,
+            scale_reward=0.1,
             include_horizon_terminal_transitions=False,
             plot=False,
-            pause_for_plot=False):
+            pause_for_plot=False,
+            mode='centralized'):
         """
         :param env: Environment
         :param policy: Policy
@@ -124,7 +189,7 @@ class DDPG(RLAlgorithm):
         :param min_pool_size: Minimum size of the pool to start training.
         :param replay_pool_size: Size of the experience replay pool.
         :param discount: Discount factor for the cumulative return.
-        :param max_path_length: Discount factor for the cumulative return.
+        :param max_path_length: Maximum length of the trajectory.
         :param qf_weight_decay: Weight decay factor for parameters of the Q function.
         :param qf_update_method: Online optimization method for training Q function.
         :param qf_learning_rate: Learning rate for training Q function.
@@ -185,15 +250,18 @@ class DDPG(RLAlgorithm):
 
         self.opt_info = None
 
+        self.mode = mode
+
     def start_worker(self):
-        parallel_sampler.populate_task(self.env, self.policy)
+        #parallel_sampler.populate_task(self.env, self.policy)
+        ma_sampler.populate_task(self.env, self.policy, self.mode)
         if self.plot:
             plotter.init_plot(self.env, self.policy)
 
     @overrides
     def train(self):
         # This seems like a rather sequential method
-        pool = SimpleReplayPool(
+        pool = MAReplayPool(
             max_pool_size=self.replay_pool_size,
             observation_dim=self.env.observation_space.flat_dim,
             action_dim=self.env.action_space.flat_dim,
@@ -203,7 +271,7 @@ class DDPG(RLAlgorithm):
         self.init_opt()
         itr = 0
         path_length = 0
-        path_return = 0
+        path_return = 0 if self.mode == 'centralized' else np.zeros(len(self.env.agents))
         terminal = False
         observation = self.env.reset()
 
@@ -224,20 +292,64 @@ class DDPG(RLAlgorithm):
                     self.es_path_returns.append(path_return)
                     path_length = 0
                     path_return = 0
-                action = self.es.get_action(itr, observation, policy=sample_policy)  # qf=qf)
-
-                next_observation, reward, terminal, _ = self.env.step(action)
-                path_length += 1
-                path_return += reward
+                if self.mode == 'centralized':
+                    action = self.es.get_action(itr, observation, policy=sample_policy)  # qf=qf)
+                    next_observation, reward, terminal, _ = self.env.step(action)
+                    path_length += 1
+                    path_return += reward
+                elif self.mode == 'decentralized':
+                    action = []
+                    for agent_obs in observation:
+                        action.append(self.es.get_action(itr, agent_obs, policy=sample_policy))
+                    next_observation, reward, terminal, _ = self.env.step(action)
+                    path_length += 1
+                    path_return += np.array(reward)
+                else:
+                    raise NotImplementedError()
 
                 if not terminal and path_length >= self.max_path_length:
                     terminal = True
                     # only include the terminal transition in this case if the flag was set
                     if self.include_horizon_terminal_transitions:
-                        pool.add_sample(observation, action, reward * self.scale_reward, terminal)
+                        if self.mode == 'centralized':
+                            pool.add_sample(
+                                self.env.observation_space.flatten(observation),
+                                self.env.action_space.flatten(action),
+                                reward * self.scale_reward,
+                                self.env.observation_space.flatten(next_observation),
+                                terminal
+                            )
+                        elif self.mode == 'decentralized':
+                            for o, a, r, op in zip(observation, action, reward, next_observation):
+                                pool.add_sample(
+                                    self.env.observation_space.flatten(o),
+                                    self.env.action_space.flatten(a),
+                                    r * self.scale_reward,
+                                    self.env.observation_space.flatten(op),
+                                    terminal
+                                )
+                        else:
+                            raise NotImplementedError()
                 else:
-                    pool.add_sample(observation, action, reward * self.scale_reward, terminal)
-
+                    if self.mode == 'centralized':
+                        pool.add_sample(
+                            self.env.observation_space.flatten(observation),
+                            self.env.action_space.flatten(action),
+                            reward * self.scale_reward,
+                            self.env.observation_space.flatten(next_observation),
+                            terminal
+                        )
+                    elif self.mode == 'decentralized':
+                        for o, a, r, op in zip(observation, action, reward, next_observation):
+                            pool.add_sample(
+                                self.env.observation_space.flatten(o),
+                                self.env.action_space.flatten(a),
+                                r * self.scale_reward,
+                                self.env.observation_space.flatten(op),
+                                terminal
+                            )
+                    else:
+                        raise NotImplementedError()
                 observation = next_observation
 
                 if pool.size >= self.min_pool_size:
@@ -259,9 +371,10 @@ class DDPG(RLAlgorithm):
             if self.plot:
                 self.update_plot()
                 if self.pause_for_plot:
-                    input("Plotting evaluation run: Press Enter to "
+                    raw_input("Plotting evaluation run: Press Enter to "
                               "continue...")
-        self.env.terminate()
+        # don't need to terminate multiagent env
+        #self.env.terminate()
         self.policy.terminate()
 
     def init_opt(self):
@@ -366,10 +479,11 @@ class DDPG(RLAlgorithm):
 
     def evaluate(self, epoch, pool):
         logger.log("Collecting samples for evaluation")
-        paths = parallel_sampler.sample_paths(
+        paths = ma_sampler.sample_paths(
             policy_params=self.policy.get_param_values(),
             max_samples=self.eval_samples,
             max_path_length=self.max_path_length,
+            ma_mode=self.mode
         )
 
         average_discounted_return = np.mean(
@@ -377,6 +491,8 @@ class DDPG(RLAlgorithm):
         )
 
         returns = [sum(path["rewards"]) for path in paths]
+
+        traj_lengths = [len(path["rewards"]) for path in paths]
 
         all_qs = np.concatenate(self.q_averages)
         all_ys = np.concatenate(self.y_averages)
@@ -403,6 +519,10 @@ class DDPG(RLAlgorithm):
                               np.max(returns))
         logger.record_tabular('MinReturn',
                               np.min(returns))
+        logger.record_tabular('NTraj',
+                              len(traj_lengths))
+        logger.record_tabular('AveTrajLen',
+                              np.mean(traj_lengths))
         if len(self.es_path_returns) > 0:
             logger.record_tabular('AverageEsReturn',
                                   np.mean(self.es_path_returns))
