@@ -62,7 +62,7 @@ def evaluate(env, agent, max_path_length, n_paths, ma_mode, disc):
 
         rets, retsstd, discrets, infos = [], [], [], []
         retlist = []
-        path_rets = []
+        #path_reward = []
         for agid, paths in agent2paths.items():
             agent_rets = [np.sum(path['rewards']) for path in paths]
             retlist.append(agent_rets)
@@ -79,7 +79,8 @@ def evaluate(env, agent, max_path_length, n_paths, ma_mode, disc):
         logger.log('Done!')
         dictinfos = tensor_utils.stack_tensor_dict_list(infos)
         retlist = np.mean(retlist, axis=0)
-        return dict(ret=rets, retstd=retsstd, discret=discrets, path_reward=path_reward, retlist=retlist, **dictinfos)
+        #return dict(ret=rets, retstd=retsstd, discret=discrets, path_reward=path_reward, retlist=retlist, **dictinfos)
+        return dict(ret=rets, retstd=retsstd, discret=discrets, retlist=retlist, **dictinfos)
     elif ma_mode == 'concurrent':
         raise NotImplementedError()
 
